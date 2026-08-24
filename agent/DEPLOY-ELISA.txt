@@ -1,28 +1,20 @@
-ELISA realtime deployment
+ELISA OPTION B - DEPLOY
 
-This version intentionally does NOT use LiveKit Inference for STT/LLM.
-The previous agent used inference.STT/inference.LLM and its worker log showed
-a fatal lk_eot_audio inference-runner startup error.
+This agent uses:
+- Deepgram Nova-3 via LiveKit Inference for STT
+- OpenAI GPT-4.1 mini for the LLM
+- ElevenLabs TTS plugin for the custom voice
+- Silero VAD
 
-Required secrets:
-  LIVEKIT_API_KEY
-  LIVEKIT_API_SECRET
-  LIVEKIT_URL
-  LIVEKIT_AGENT_NAME=elisa
-  ELEVEN_API_KEY
-  ELEVENLABS_VOICE_ID=rhS7yjXTU4uIlRxXhNW7
-  OPENAI_API_KEY
+LiveKit Cloud secrets required:
+OPENAI_API_KEY
+ELEVEN_API_KEY
+ELEVENLABS_VOICE_ID
+LIVEKIT_AGENT_NAME=elisa
 
-Pipeline:
-  microphone -> ElevenLabs Scribe v2 Realtime -> OpenAI gpt-4.1-mini
-  -> ElevenLabs eleven_flash_v2_5 -> LiveKit audio
+IMPORTANT: Do not put API keys in the ZIP or Git repository.
 
-Deploy:
-  npm install
-  npm run build
-  lk agent deploy . --secrets-file .env
+Deploy from this agent directory with:
+lk agent deploy
 
-Then check:
-  lk agent status
-
-The agent should say a short greeting immediately after joining the test room.
+After deployment, start a NEW test session. The agent validates that ELEVENLABS_VOICE_ID is visible to ELEVEN_API_KEY before starting the session, so a wrong-account voice now fails with a clear error instead of a generic elevenlabs.TTS event.

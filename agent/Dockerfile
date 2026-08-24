@@ -1,7 +1,7 @@
 FROM node:22-slim AS build
 WORKDIR /app
 RUN apt-get update -qq && apt-get install --no-install-recommends -y ca-certificates && rm -rf /var/lib/apt/lists/*
-COPY package.json package-lock.json ./
+COPY package.json ./
 RUN npm install --no-audit --no-fund
 RUN npx livekit-agents download-files
 COPY . .
