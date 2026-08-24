@@ -1,0 +1,4 @@
+[21:32:46.744] [33mWARN[39m (3464): [36mdev mode is deprecated and will be removed in a future release; use `lk agent dev` instead (https://docs.livekit.io/reference/developer-tools/livekit-cli/#setup)[39m
+[21:32:47.827] [34mDEBUG[39m (8220): [36minitializing inference runner[39m
+    runner: "lk_eot_audio"
+[21:32:47.860] [41mFATAL[49m (3464): [36mclosing worker due to error.[39m
