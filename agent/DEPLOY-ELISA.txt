@@ -1,14 +1,28 @@
-ELISA deployment
+ELISA realtime deployment
 
-1. Copy .env.example to .env and fill in LIVEKIT_API_KEY, LIVEKIT_API_SECRET,
-   LIVEKIT_URL, and ELEVEN_API_KEY. Never share .env.
-2. From this agent folder run:
-   npm ci
-   npm run build
-   npm start
-3. Wait for "registered worker". Stop with Ctrl+C.
-4. Deploy:
-   lk agent deploy . --secrets-file .env
-5. Check:
-   lk agent status
-6. It must say Running.
+This version intentionally does NOT use LiveKit Inference for STT/LLM.
+The previous agent used inference.STT/inference.LLM and its worker log showed
+a fatal lk_eot_audio inference-runner startup error.
+
+Required secrets:
+  LIVEKIT_API_KEY
+  LIVEKIT_API_SECRET
+  LIVEKIT_URL
+  LIVEKIT_AGENT_NAME=elisa
+  ELEVEN_API_KEY
+  ELEVENLABS_VOICE_ID=rhS7yjXTU4uIlRxXhNW7
+  OPENAI_API_KEY
+
+Pipeline:
+  microphone -> ElevenLabs Scribe v2 Realtime -> OpenAI gpt-4.1-mini
+  -> ElevenLabs eleven_flash_v2_5 -> LiveKit audio
+
+Deploy:
+  npm install
+  npm run build
+  lk agent deploy . --secrets-file .env
+
+Then check:
+  lk agent status
+
+The agent should say a short greeting immediately after joining the test room.

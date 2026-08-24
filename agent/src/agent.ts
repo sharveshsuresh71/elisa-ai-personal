@@ -5,14 +5,15 @@ import {
   cli,
   defineAgent,
   voice,
-  inference,
 } from "@livekit/agents";
 import * as silero from "@livekit/agents-plugin-silero";
 import * as elevenlabs from "@livekit/agents-plugin-elevenlabs";
+import * as openai from "@livekit/agents-plugin-openai";
 import { fileURLToPath } from "node:url";
 
 const AGENT_NAME = process.env.LIVEKIT_AGENT_NAME || "elisa";
-const ELEVEN_VOICE_ID = process.env.ELEVENLABS_VOICE_ID || "rhS7yjXTU4uIlRxXhNW7";
+const ELEVEN_VOICE_ID =
+  process.env.ELEVENLABS_VOICE_ID || "rhS7yjXTU4uIlRxXhNW7";
 
 export default defineAgent({
   prewarm: async (proc: JobProcess) => {
@@ -20,10 +21,15 @@ export default defineAgent({
   },
 
   entry: async (ctx: JobContext) => {
-    if (!process.env.ELEVEN_API_KEY) {
-      throw new Error("ELEVEN_API_KEY is missing. Add your ElevenLabs API key to agent/.env / Railway variables.");
-    }
+    const elevenApiKey = process.env.ELEVEN_API_KEY;
+    const openaiApiKey = process.env.OPENAI_API_KEY;
 
+    if (!elevenApiKey) throw new Error("ELEVEN_API_KEY is missing.");
+    if (!openaiApiKey) throw new Error("OPENAI_API_KEY is missing.");
+
+    // Do NOT import/use @livekit/agents inference here. The old agent used
+    // inference.STT/inference.LLM and the deployed worker log showed the
+    // fatal lk_eot_audio inference-runner startup error.
     await ctx.connect();
 
     const agent = new voice.Agent({
@@ -31,16 +37,26 @@ export default defineAgent({
         "You are ELISA, a sweet, warm, personal AI voice assistant.",
         "Speak naturally and conversationally with short, clear sentences.",
         "You are speaking out loud, so never use markdown, bullet points, or long written-style answers.",
-        "Be friendly, gentle, and responsive.",
+        "Be friendly, gentle, responsive, and concise.",
       ].join(" "),
     });
 
     const session = new voice.AgentSession({
-      stt: new inference.STT({ model: "deepgram/nova-3", language: "en" }),
-      llm: new inference.LLM({ model: "openai/gpt-4.1-mini" }),
-      // Direct ElevenLabs plugin so your custom/community voice ID works.
+      // Elisa's ears: ElevenLabs Scribe v2 Realtime.
+      stt: new elevenlabs.STT({
+        apiKey: elevenApiKey,
+        model: "scribe_v2_realtime",
+      }),
+
+      // Elisa's brain: direct OpenAI plugin, not LiveKit Inference.
+      llm: new openai.responses.LLM({
+        apiKey: openaiApiKey,
+        model: "gpt-4.1-mini",
+      }),
+
+      // Elisa's voice: your ElevenLabs voice.
       tts: new elevenlabs.TTS({
-        apiKey: process.env.ELEVEN_API_KEY,
+        apiKey: elevenApiKey,
         voiceId: ELEVEN_VOICE_ID,
         model: "eleven_flash_v2_5",
         language: "en",
@@ -53,26 +69,28 @@ export default defineAgent({
           speed: 0.98,
         },
       }),
+
       vad: ctx.proc.userData.vad as silero.VAD,
       turnDetection: "vad",
     });
 
+    await session.start({ agent, room: ctx.room });
 
-    await session.start({
-      agent,
-      room: ctx.room,
+    console.log(
+      `[ELISA] READY room=${ctx.room.name} voice=${ELEVEN_VOICE_ID} stt=elevenlabs/scribe_v2_realtime llm=openai/gpt-4.1-mini tts=elevenlabs/eleven_flash_v2_5`,
+    );
+
+    const greeting = await session.generateReply({
+      instructions:
+        "Greet the user warmly in one short sentence. Say you are Elisa and ready to talk.",
     });
-
-    console.log(`[ELISA] connected to room ${ctx.room.name}; TTS voice ${ELEVEN_VOICE_ID}`);
-
-    // Force a spoken greeting so the user can immediately confirm audio output.
-    await session.generateReply({
-      instructions: "Greet the user warmly in one short sentence. Say you are listening and ready to help.",
-    });
+    await greeting.waitForPlayout();
   },
 });
 
-cli.runApp(new ServerOptions({
-  agent: fileURLToPath(import.meta.url),
-  agentName: AGENT_NAME,
-}));
+cli.runApp(
+  new ServerOptions({
+    agent: fileURLToPath(import.meta.url),
+    agentName: AGENT_NAME,
+  }),
+);
