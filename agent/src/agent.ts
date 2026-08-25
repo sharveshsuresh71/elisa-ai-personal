@@ -107,24 +107,3 @@ export default defineAgent({
     );
   }
 });
-    await session.start({
-      agent,
-      room: ctx.room,
-    });
-
-    console.log(
-      `[ELISA] READY room=${ctx.room.name} ` +
-        `voice=${ELEVEN_VOICE_ID} ` +
-        `stt=deepgram/nova-3 ` +
-        `llm=openai/gpt-4.1-mini ` +
-        `tts=elevenlabs/eleven_turbo_v2_5`,
-    );
-  },
-});
-
-cli.runApp(
-  new ServerOptions({
-    agent: fileURLToPath(import.meta.url),
-    agentName: AGENT_NAME,
-  }),
-);
