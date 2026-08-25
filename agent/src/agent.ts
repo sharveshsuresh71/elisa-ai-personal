@@ -93,21 +93,20 @@ export default defineAgent({
     // the next turn with no audio and no explanation. We log the real cause
     // and give the user a spoken heads-up instead of dead air.
     session.on(voice.AgentSessionEventTypes.Error, (ev) => {
-      console.error(
-        `[ELISA] session error from ${ev.source.constructor.name}:`,
-        ev.error,
-      );
+  console.error(
+    `[ELISA] session error from ${ev.source?.constructor?.name ?? "unknown"}:`,
+    ev.error,
+  );
 
-      if (ev.error.recoverable) return;
+  if (ev.error.recoverable) return;
 
-      if (ev.source instanceof ttsNs.TTS) {
-        // TTS itself is down, so session.say() with only text would try to
-        // use the same broken TTS. Just log; the next turn gets a fresh
-        // TTS instance and the framework will keep the session alive.
-        ev.error.recoverable = true;
-      }
-    });
-
+  if (ev.source instanceof ttsNs.TTS) {
+    console.error(
+      "[ELISA] TTS failure is non-recoverable. Check ElevenLabs credentials/configuration.",
+      ev.error,
+    );
+  }
+});
     await session.start({
       agent,
       room: ctx.room,
