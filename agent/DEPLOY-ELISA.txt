@@ -3,7 +3,7 @@ ELISA OPTION B - DEPLOY
 This agent uses:
 - Deepgram Nova-3 via LiveKit Inference for STT
 - OpenAI GPT-4.1 mini for the LLM
-- ElevenLabs TTS plugin for the custom voice
+- ElevenLabs TTS plugin for the custom voice (API key passed explicitly)
 - Silero VAD
 
 LiveKit Cloud secrets required:
@@ -17,4 +17,4 @@ IMPORTANT: Do not put API keys in the ZIP or Git repository.
 Deploy from this agent directory with:
 lk agent deploy
 
-After deployment, start a NEW test session. The agent validates that ELEVENLABS_VOICE_ID is visible to ELEVEN_API_KEY before starting the session, so a wrong-account voice now fails with a clear error instead of a generic elevenlabs.TTS event.
+After deployment, start a NEW test session. The agent explicitly passes ELEVEN_API_KEY to the ElevenLabs plugin and verifies the selected voice before starting. The agent validates that ELEVENLABS_VOICE_ID is visible to ELEVEN_API_KEY before starting the session, so a wrong-account voice now fails with a clear error instead of a generic elevenlabs.TTS event.

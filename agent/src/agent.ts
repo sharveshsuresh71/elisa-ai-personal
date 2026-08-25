@@ -49,12 +49,14 @@ export default defineAgent({
       model: "gpt-4.1-mini",
     });
 
-    // Custom/community ElevenLabs voices require the ElevenLabs plugin,
-    // not LiveKit Inference. The plugin reads ELEVEN_API_KEY from the
-    // environment; keeping the key out of source avoids deployment mistakes.
+    // Use the direct ElevenLabs plugin because this is a custom/community voice.
+    // Pass the API key explicitly so there is no ambiguity about which LiveKit
+    // secret is being used. The plugin also supports ELEVEN_API_KEY, but the
+    // explicit value makes deployment diagnostics deterministic.
     const tts = new elevenlabs.TTS({
+      apiKey: elevenApiKey,
       voiceId: ELEVEN_VOICE_ID,
-      model: "eleven_flash_v2_5",
+      model: "eleven_turbo_v2_5",
       language: "en",
       autoMode: true,
       enableLogging: true,
@@ -67,16 +69,21 @@ export default defineAgent({
       },
     });
 
-    // Fail fast with a useful deployment error if the voice isn't visible
-    // to the supplied ElevenLabs account. This is much easier to diagnose
-    // than a generic "elevenlabs.TTS" event.
-    const voices = await tts.listVoices();
-    const selected = voices.find((v) => v.id === ELEVEN_VOICE_ID);
-    if (!selected) {
-      throw new Error(
-        `ElevenLabs voice ${ELEVEN_VOICE_ID} is not available to the configured ELEVEN_API_KEY. ` +
-          "Check that the API key belongs to the ElevenLabs account containing this voice."
-      );
+    // Verify the API key can see the selected voice before accepting calls.
+    // This catches wrong-account/permission problems at startup instead of
+    // leaving the frontend with only a generic elevenlabs.TTS error.
+    try {
+      const voices = await tts.listVoices();
+      const selected = voices.find((v) => v.id === ELEVEN_VOICE_ID);
+      if (!selected) {
+        throw new Error(
+          `ElevenLabs voice ${ELEVEN_VOICE_ID} is not visible to the configured ELEVEN_API_KEY.`
+        );
+      }
+      console.log(`[ELISA] ElevenLabs voice verified: ${selected.name} (${selected.id})`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new Error(`ElevenLabs voice verification failed: ${message}`);
     }
 
     const session = new voice.AgentSession({
