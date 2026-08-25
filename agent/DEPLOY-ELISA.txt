@@ -17,4 +17,4 @@ IMPORTANT: Do not put API keys in the ZIP or Git repository.
 Deploy from this agent directory with:
 lk agent deploy
 
-After deployment, start a NEW test session. The agent explicitly passes ELEVEN_API_KEY to the ElevenLabs plugin and verifies the selected voice before starting. The agent validates that ELEVENLABS_VOICE_ID is visible to ELEVEN_API_KEY before starting the session, so a wrong-account voice now fails with a clear error instead of a generic elevenlabs.TTS event.
+After deployment, start a NEW test session. The agent explicitly passes ELEVEN_API_KEY to the ElevenLabs plugin. The custom/community voice is kept on the direct ElevenLabs plugin path.

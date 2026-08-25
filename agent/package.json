@@ -6,15 +6,16 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "dev": "node --env-file=.env dist/agent.js dev",
-    "start": "node --env-file=.env dist/agent.js start"
+    "start": "node --env-file=.env dist/agent.js start",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@livekit/agents": "^1.13.5",
-    "@livekit/agents-plugin-elevenlabs": "^1.13.5",
-    "@livekit/agents-plugin-livekit": "^1.13.5",
-    "@livekit/agents-plugin-silero": "^1.13.5",
+    "@livekit/agents": "1.7.0",
+    "@livekit/agents-plugin-elevenlabs": "1.7.0",
+    "@livekit/agents-plugin-livekit": "1.7.0",
+    "@livekit/agents-plugin-silero": "1.7.0",
     "zod": "^3.24.1",
-    "@livekit/agents-plugin-openai": "^1.13.5"
+    "@livekit/agents-plugin-openai": "1.7.0"
   },
   "devDependencies": {
     "@types/node": "^24",
