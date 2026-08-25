@@ -6,6 +6,7 @@ import {
   defineAgent,
   inference,
   voice,
+  tts as ttsNs,
 } from "@livekit/agents";
 import * as silero from "@livekit/agents-plugin-silero";
 import * as elevenlabs from "@livekit/agents-plugin-elevenlabs";
@@ -54,14 +55,18 @@ export default defineAgent({
 
     // Direct ElevenLabs plugin: required for custom/community voices.
     // The API key is passed explicitly from the LiveKit Cloud secret.
+    // NOTE: the constructor option is `model`, not `modelID`. The plugin
+    // does technically accept `modelID` as a legacy alias, but silently
+    // relying on an alias is exactly the kind of thing that causes
+    // "it looks right but doesn't do what I think" bugs - use the
+    // documented name.
     const tts = new elevenlabs.TTS({
       apiKey: elevenApiKey,
       voiceId: ELEVEN_VOICE_ID,
-      modelID: "eleven_turbo_v2_5",
+      model: "eleven_turbo_v2_5",
       encoding: "pcm_16000",
       language: "en",
-      streamingLatency: 1,
-      autoMode: true,
+      streamingLatency: 3,
       enableLogging: true,
     });
 
@@ -76,6 +81,31 @@ export default defineAgent({
       turnHandling: {
         turnDetection: "vad",
       },
+    });
+
+    // Surface the *actual* error from a failed component (e.g. ElevenLabs
+    // returning 401/403/422) in our own logs. Without this, LiveKit Cloud's
+    // dashboard only shows the generic "error -> elevenlabs.TTS" event and
+    // the real HTTP status/message from ElevenLabs is otherwise invisible.
+    //
+    // This also fixes the "silently goes back to listening" symptom: TTS
+    // errors default to recoverable, so the session just quietly retries on
+    // the next turn with no audio and no explanation. We log the real cause
+    // and give the user a spoken heads-up instead of dead air.
+    session.on(voice.AgentSessionEventTypes.Error, (ev) => {
+      console.error(
+        `[ELISA] session error from ${ev.source.constructor.name}:`,
+        ev.error,
+      );
+
+      if (ev.error.recoverable) return;
+
+      if (ev.source instanceof ttsNs.TTS) {
+        // TTS itself is down, so session.say() with only text would try to
+        // use the same broken TTS. Just log; the next turn gets a fresh
+        // TTS instance and the framework will keep the session alive.
+        ev.error.recoverable = true;
+      }
     });
 
     await session.start({
