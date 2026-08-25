@@ -14,8 +14,9 @@ import { fileURLToPath } from "node:url";
 
 const AGENT_NAME = process.env.LIVEKIT_AGENT_NAME || "elisa";
 
+// ElevenLabs female voice
 const ELEVEN_VOICE_ID =
-  process.env.ELEVENLABS_VOICE_ID || "rhS7yjXTU4uIlRxXhNW7";
+  process.env.ELEVENLABS_VOICE_ID || "hpp4J3VqNfWAUOO0d1Us";
 
 export default defineAgent({
   prewarm: async (proc: JobProcess) => {
