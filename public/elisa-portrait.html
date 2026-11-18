@@ -61,7 +61,7 @@ renderer.setClearColor(0x0d100d,1);
 const scene=new THREE.Scene();
 const camera=new THREE.PerspectiveCamera(30,1,0.1,100);
 camera.position.set(0,0.1,5.2);camera.lookAt(0,0,0);
-const U={uTime:{value:0},uYaw:{value:0},uPitch:{value:0},uCursor:{value:new THREE.Vector2(0,0)},uCursorStrength:{value:0},uSweep:{value:99},uMouth:{value:0},uIdle:{value:0},uSize:{value:0.024},uPixel:{value:800}};
+const U={uTime:{value:0},uYaw:{value:0},uPitch:{value:0},uCursor:{value:new THREE.Vector2(0,0)},uCursorStrength:{value:0},uSweep:{value:99},uMouth:{value:0},uIdle:{value:0},uGlint:{value:0},uGlintX:{value:0},uSize:{value:0.024},uPixel:{value:800}};
 function resize(){renderer.setSize(innerWidth,innerHeight,false);camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();
   U.uPixel.value=renderer.getPixelRatio()*innerHeight/(2*Math.tan(THREE.MathUtils.degToRad(15)));}
 addEventListener('resize',resize);resize();
@@ -69,7 +69,7 @@ const cursor={x:0,y:0,active:false};
 addEventListener('pointermove',e=>{cursor.x=(e.clientX/innerWidth)*2-1;cursor.y=-((e.clientY/innerHeight)*2-1);cursor.active=true;});
 addEventListener('pointerleave',()=>{cursor.active=false;});
 const VERT=`
-uniform float uTime,uYaw,uPitch,uSweep,uSize,uPixel,uCursorStrength,uMouth,uIdle;uniform vec2 uCursor;
+uniform float uTime,uYaw,uPitch,uSweep,uSize,uPixel,uCursorStrength,uMouth,uIdle,uGlint,uGlintX;uniform vec2 uCursor;
 attribute vec3 aStart,aColor;attribute float aDelay;
 varying float vLight,vAlpha;varying vec3 vColor;
 void main(){
@@ -78,14 +78,16 @@ void main(){
   float mouth=exp(-pow(position.x/0.14,2.0))*exp(-pow((position.y-0.2)/0.075,2.0));
   float open=(uMouth+uIdle)*mouth*smoothstep(0.24,0.14,position.y);
   pos.y-=open*0.06;pos.z+=open*0.02;
-  pos.y+=sin(uTime*1.3+position.x*3.0)*0.006;
+  float ph=aDelay*40.0;
+  pos+=vec3(sin(uTime*0.9+ph),cos(uTime*0.7+ph*1.3),sin(uTime*0.5+ph*0.7))*0.012*e;
   float cy=cos(uYaw),sy=sin(uYaw),cx=cos(uPitch),sx=sin(uPitch);
   vec3 r=vec3(pos.x*cy+pos.z*sy,pos.y,-pos.x*sy+pos.z*cy);
   r=vec3(r.x,r.y*cx-r.z*sx,r.y*sx+r.z*cx);
   vec4 mv=modelViewMatrix*vec4(r,1.0);gl_Position=projectionMatrix*mv;
   float d=distance(r.xy,uCursor);float glow=exp(-d*d*12.0)*uCursorStrength;
   float band=exp(-pow((r.x*0.7+r.y*0.9)-uSweep,2.0)*18.0);
-  vLight=0.85+glow*0.9+band*0.9;vColor=aColor;vAlpha=e;
+  float eyeGlint=uGlint*exp(-pow((position.y-0.43)/0.05,2.0))*exp(-pow(position.x-uGlintX,2.0)*10.0);
+  vLight=0.85+glow*0.9+band*0.9+eyeGlint*0.9;vColor=aColor;vAlpha=e;
   gl_PointSize=uSize*uPixel/-mv.z*(0.5+0.7*e);
 }`;
 const FRAG=`varying float vLight,vAlpha;varying vec3 vColor;
@@ -130,10 +132,12 @@ addEventListener('message',e=>{if(e.data&&e.data.type==='elisa-level'){mouthTarg
 function loop(now){
   if(started){
     const ta=(now-assembleAt)/1000;U.uTime.value=Math.max(0,ta);
+    const gph=(ta-5.0)%6.0;
+    if(ta>5.0&&gph<1.4){U.uGlint.value=1;U.uGlintX.value=-1.2+gph/1.4*2.4;}else U.uGlint.value=0;
     const st=ta-3.0;U.uSweep.value=(st>0&&st<2.2)?(-2.5+st/2.2*5):99;
     const tx=cursor.active?cursor.x:0,ty=cursor.active?cursor.y:0;
     mouse.x+=(tx-mouse.x)*0.04;mouse.y+=(ty-mouse.y)*0.04;
-    U.uYaw.value=mouse.x*0.3+Math.sin(ta*0.5)*0.08;U.uPitch.value=-mouse.y*0.08+Math.sin(ta*0.37)*0.03;
+    U.uYaw.value=mouse.x*0.3+Math.sin(ta*0.5)*0.12;U.uPitch.value=-mouse.y*0.08+Math.sin(ta*0.37)*0.03;
     U.uMouth.value+=(mouthTarget-U.uMouth.value)*0.35;
     U.uIdle.value=(Math.sin(ta*9.0)*0.5+0.5)*0.12*Math.min(1,mouthTarget*4.0+0.0);
     U.uCursor.value.set(mouse.x*1.0,mouse.y*1.0);
