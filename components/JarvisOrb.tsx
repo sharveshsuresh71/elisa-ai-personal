@@ -23,6 +23,7 @@ export default function JarvisOrb() {
   const [camera, setCamera] = useState<CameraState>("off");
   const [status, setStatus] = useState<TrackerStatus>({ hands: 0, mode: "idle" });
   const [error, setError] = useState<string | null>(null);
+  const [portrait, setPortrait] = useState(false);
 
   const voice = useVoiceAgent({
     onVoiceLevel: (level) => sceneRef.current?.setVoiceLevel(level),
@@ -115,6 +116,14 @@ export default function JarvisOrb() {
     <>
       <div ref={containerRef} className="orb-root" />
 
+      {portrait && (
+        <iframe
+          src="/elisa-portrait.html"
+          title="Elisa portrait"
+          style={{ position: "fixed", inset: 0, width: "100%", height: "100%", border: 0, zIndex: 15 }}
+        />
+      )}
+
       <div className="overlay-vignette" />
       <div className="overlay-grain" />
       <div className="overlay-scanlines" />
@@ -182,6 +191,11 @@ export default function JarvisOrb() {
             disabled={camera === "starting"}
           >
             {camera === "starting" ? "INITIALIZING…" : cameraOn ? "GESTURES ON" : "GESTURES OFF"}
+          </button>
+        </div>
+        <div className="hud-row">
+          <button type="button" className="hud-btn" aria-pressed={portrait} onClick={() => setPortrait((v) => !v)}>
+            {portrait ? "BACK TO ORB" : "ELISA PORTRAIT"}
           </button>
         </div>
         <div className="hud-row">

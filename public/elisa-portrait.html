@@ -1,0 +1,887 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Elisa</title>
+<meta name="description" content="A point cloud portrait of a botanist, built from 66,000 dots. Move the light.">
+<link rel="preconnect" href="https://cdn.jsdelivr.net">
+<style>
+@font-face{font-family:"Geist";src:url("https://fonts.gstatic.com/s/geist/v5/gyByhwUxId8gMEwcGFU.woff2") format("woff2");font-weight:100 900;font-style:normal;font-display:swap}
+@font-face{font-family:"Geist Mono";src:url("https://fonts.gstatic.com/s/geistmono/v6/or3nQ6H-1_WfwkMZI_qYFrcdmg.woff2") format("woff2");font-weight:100 900;font-style:normal;font-display:swap}
+@font-face{font-family:"Instrument Serif";src:url("https://fonts.gstatic.com/s/instrumentserif/v5/jizBRFtNs2ka5fXjeivQ4LroWlx-6zUTjg.woff2") format("woff2");font-weight:400;font-style:normal;font-display:swap}
+
+:root{
+  --color-night:#0f110d;
+  --color-paper:#f0e5c8;
+  --color-dots:#c9d4b8;
+  --color-tech:#7fa8a3;
+  --color-muted:#7f8a6a;
+  --color-surface:#fff;
+  --color-ink:#111;
+  --color-line:#1111111a;
+  --font-sans:"Geist", ui-sans-serif, system-ui, sans-serif;
+  --font-mono:"Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-serif:"Instrument Serif", Georgia, "Times New Roman", serif;
+}
+
+*,*::before,*::after{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--color-night)}
+body{font-family:var(--font-sans);-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
+
+.page{position:fixed;inset:0;overflow:hidden;background:var(--color-night);color:var(--color-paper);cursor:crosshair;touch-action:none}
+.page[data-phase="ready"]{cursor:none}
+
+/* film grain over everything */
+.page::after{
+  content:"";position:absolute;inset:0;pointer-events:none;z-index:6;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1.7 0 0 0 -0.6'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  filter:invert(1);opacity:.05;
+}
+
+.stage{position:absolute;inset:0}
+.stage canvas{display:block;width:100%;height:100%}
+
+/* ——— loader ——— */
+.loader{position:absolute;inset:0;display:grid;place-items:center;pointer-events:none;transition:opacity .5s .15s}
+.page[data-phase="ready"] .loader{opacity:0}
+.ring{position:absolute;top:50%;left:50%;width:220px;height:220px;transform:translate(-50%,-50%);overflow:visible}
+.ring circle{r:1.6px;fill:color-mix(in srgb,var(--color-paper) 18%,transparent);transition:fill .25s,r .25s}
+.ring circle[data-on]{r:2.2px;fill:var(--color-paper)}
+.counter{position:absolute;top:50%;left:50%;transform:translate(-50%,-60%);font-family:var(--font-mono);font-size:34px;letter-spacing:.02em;font-variant-numeric:tabular-nums;white-space:nowrap;color:var(--color-paper)}
+.label{position:absolute;top:50%;left:50%;transform:translate(-50%,26px);font-family:var(--font-mono);font-size:11px;text-transform:uppercase;letter-spacing:.12em;opacity:.5;white-space:nowrap;color:var(--color-paper)}
+
+/* ——— logo ——— */
+.logo{position:absolute;top:20px;left:clamp(20px,4vw,64px);margin:0;font-family:var(--font-serif);font-weight:400;font-size:26px;color:inherit;text-decoration:none;opacity:0;transition:opacity .9s cubic-bezier(.22,1,.36,1)}
+.page[data-phase="ready"] .logo{opacity:.9}
+.page[data-phase="ready"] .logo:hover,
+.page[data-phase="ready"] .logo:focus-visible{opacity:1;text-decoration:underline;text-underline-offset:4px}
+
+/* ——— name, tagline, hint ——— */
+.name,.tagline,.hint{position:absolute;margin:0;opacity:0;transition:opacity .9s cubic-bezier(.22,1,.36,1),transform .9s cubic-bezier(.22,1,.36,1)}
+.name,.tagline{top:50%;font-family:var(--font-sans);font-weight:400;font-size:clamp(17px,1.6vw,24px);letter-spacing:-.01em;transform:translate(0,calc(10px - 50%))}
+.name{left:clamp(20px,4vw,64px);color:var(--color-paper)}
+.tagline{right:clamp(20px,4vw,64px);color:var(--color-muted);transition-delay:.12s}
+.page[data-phase="ready"] .name,
+.page[data-phase="ready"] .tagline{opacity:1;transform:translate(0,-50%)}
+
+.hint{bottom:22px;left:50%;white-space:nowrap;font-family:var(--font-mono);font-size:11px;text-transform:uppercase;letter-spacing:.12em;color:var(--color-paper);transform:translate(-50%,10px);transition-delay:.5s}
+.page[data-phase="ready"] .hint{opacity:.45;transform:translate(-50%,0)}
+
+/* ——— pill ——— */
+.pill{position:fixed;bottom:20px;left:20px;z-index:7;background:var(--color-surface);color:var(--color-ink);font-family:var(--font-mono);font-size:12px;letter-spacing:.04em;padding:8px 12px;border-radius:6px;text-decoration:none;box-shadow:0 0 0 1px var(--color-line),0 10px 24px -12px #0006;opacity:0;animation:pillIn .6s cubic-bezier(.22,1,.36,1) 4s both}
+@keyframes pillIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+
+/* ——— mobile ——— */
+@media (max-width:700px){
+  .name,.tagline{font-size:16px;top:72px;transform:translate(0,10px)}
+  .page[data-phase="ready"] .name,
+  .page[data-phase="ready"] .tagline{transform:translate(0,0)}
+  .hint{bottom:60px}
+}
+@media (max-width:600px){
+  .pill{padding:6px 9px;font-size:11px;bottom:12px;left:auto;right:12px}
+}
+
+/* ——— reduced motion ——— */
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{transition:none!important;animation:none!important}
+  .pill{opacity:1}
+}
+</style>
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+  }
+}
+</script>
+</head>
+<body>
+<main class="page" data-phase="loading">
+  <div class="stage" aria-hidden="true"></div>
+
+  <div class="loader" role="progressbar" aria-label="Loading the dots" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+    <svg class="ring" viewBox="-110 -110 220 220" aria-hidden="true"></svg>
+    <span class="counter">000</span>
+    <span class="label">66,000 dots</span>
+  </div>
+
+  <a class="logo" href="./">Elisa.</a>
+  <h1 class="name">Elisa</h1>
+  <p class="tagline">Grows quiet things with AI</p>
+  <p class="hint">Move the light</p>
+  <a class="pill" href="#">How this page was made →</a>
+</main>
+
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { MeshSurfaceSampler } from 'three/addons/math/MeshSurfaceSampler.js';
+
+THREE.ColorManagement.enabled = false;
+
+/* ——— constants ——— */
+const MODEL_URL = 'https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20261115_071021_742152ba-5554-4270-9dc5-286bcff36a1a.glb';
+const DOT_COUNT = 66000;
+const CANDIDATES = DOT_COUNT * 5;
+const VISOR_COUNT = 950 + 380 + 140 + 1500 + 140; // top bar, lower edge, ends, lens, arms = 3110
+const VOX = 0.022;
+const W = 0.215;
+const CLEAR = 0.028;
+const TARGET = new THREE.Vector3(0, -0.15, 0);
+const TAN15 = Math.tan(THREE.MathUtils.degToRad(15));
+const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const dpr = Math.min(window.devicePixelRatio || 1, 2);
+
+/* ——— seeded random ——— */
+let seed = 20261118;
+const R = () => {
+  seed = (seed + 0x6D2B79F5) | 0;
+  let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+  t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+  return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+};
+
+/* ——— DOM ——— */
+const page = document.querySelector('.page');
+const bar = document.querySelector('[role="progressbar"]');
+const counterEl = document.querySelector('.counter');
+const labelEl = document.querySelector('.label');
+const ringSvg = document.querySelector('.ring');
+const stage = document.querySelector('.stage');
+
+const NS = 'http://www.w3.org/2000/svg';
+const RING_N = 96;
+const ringDots = [];
+for (let i = 0; i < RING_N; i++) {
+  const a = (i / RING_N) * Math.PI * 2 - Math.PI / 2;
+  const c = document.createElementNS(NS, 'circle');
+  c.setAttribute('cx', (Math.round(92 * Math.cos(a) * 100) / 100).toString());
+  c.setAttribute('cy', (Math.round(92 * Math.sin(a) * 100) / 100).toString());
+  c.setAttribute('r', '1.6');
+  ringSvg.appendChild(c);
+  ringDots.push(c);
+}
+
+function setProgress(p) {
+  const pct = Math.round(Math.max(0, Math.min(1, p)) * 100);
+  counterEl.textContent = String(pct).padStart(3, '0');
+  bar.setAttribute('aria-valuenow', String(pct));
+  for (let i = 0; i < RING_N; i++) {
+    if (i / RING_N < p) ringDots[i].setAttribute('data-on', '');
+    else ringDots[i].removeAttribute('data-on');
+  }
+}
+
+/* ——— renderer / scene / camera ——— */
+const renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: 'high-performance' });
+renderer.setPixelRatio(dpr);
+renderer.setClearColor(0x0f110d, 1);
+stage.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(30, 1, 0.1, 100);
+const raycaster = new THREE.Raycaster();
+
+const uniforms = {
+  uTime: { value: 0 },
+  uAssemble: { value: 0 },
+  uSize: { value: 26 * dpr },
+  uGlint: { value: -9 },
+  uShine: { value: 99 },
+  uHead: { value: new THREE.Vector2(0, 0) },
+  uLight: { value: new THREE.Vector3(-1.4, 1.2, 1.6) },
+  uRingCenter: { value: TARGET.clone() },
+  uRingRadius: { value: 1 },
+  uInk: { value: new THREE.Color('#c9d4b8') },
+  uBlue: { value: new THREE.Color('#7fa8a3') },
+  uCream: { value: new THREE.Color('#f0e5c8') },
+};
+
+const bustVert = `
+uniform float uTime;
+uniform float uAssemble;
+uniform float uSize;
+uniform float uGlint;
+uniform float uShine;
+uniform vec2 uHead;
+uniform vec3 uLight;
+uniform vec3 uRingCenter;
+uniform float uRingRadius;
+attribute vec3 aNormal;
+attribute float aRand;
+attribute float aPart;
+attribute vec2 aShade;
+varying float vB;
+varying float vA;
+varying float vPart;
+varying float vGlint;
+varying float vShine;
+
+mat3 rotX(float a){ float c = cos(a), s = sin(a); return mat3(1.0,0.0,0.0, 0.0,c,s, 0.0,-s,c); }
+mat3 rotY(float a){ float c = cos(a), s = sin(a); return mat3(c,0.0,-s, 0.0,1.0,0.0, s,0.0,c); }
+
+void main(){
+  // 1. head turn
+  vec3 pivot = vec3(0.0,-1.0,0.0);
+  float head = smoothstep(-1.3,-0.6,position.y);
+  mat3 M = rotY(uHead.x*(0.25+0.75*head)) * rotX(uHead.y*head);
+  vec3 p = M*(position-pivot)+pivot;
+  vec3 n = normalize(M*aNormal);
+  vec3 turned = p;
+
+  // 2. breathing
+  p += n*sin(uTime*1.4+aRand*60.0)*0.006;
+
+  // 3. entrance
+  float r2 = fract(sin(aRand*91.7)*43758.5453);
+  float t = clamp((uAssemble-aRand*0.45)/0.55,0.0,1.0);
+  float e = t<0.5 ? 4.0*t*t*t : 1.0-pow(-2.0*t+2.0,3.0)/2.0;
+  float ang = aRand*6.2831853;
+  float rad = uRingRadius*(1.0+(r2-0.5)*0.06);
+  vec3 start = uRingCenter + vec3(cos(ang),sin(ang),0.0)*rad;
+  vec3 pos = mix(start,p,e);
+  pos += vec3(sin(aRand*40.0+uTime*0.3), cos(aRand*31.0), 0.9+r2*1.4)*sin(e*3.14159265)*0.45;
+
+  // 4. light terms
+  vec3 toL = uLight - pos;
+  float lit = max(dot(n,normalize(toL)),0.0)/(1.0+dot(toL,toL)*0.32);
+  float key = max(dot(n,normalize(vec3(-0.5,0.6,0.7))),0.0);
+  vec3 vn = normalize(mat3(viewMatrix)*n);
+  float facing = vn.z;
+  float rim = pow(1.0-abs(facing),3.0);
+
+  // 5. brightness
+  float b = 0.3+key*0.22+lit*1.5+rim*0.14;
+  b *= mix(0.55,1.0,smoothstep(-0.3,0.25,facing));
+
+  // 6. depth
+  float ridge = aShade.x;
+  float thin = aShade.y;
+  b *= ridge>0.0 ? 1.0+ridge*0.7 : 1.0+ridge*0.5;
+  b += thin*(0.26+key*0.3);
+
+  // 7. parts: 0 bust, 1 leaf, 2 visor frame, 3 lens
+  if(aPart>0.5 && aPart<1.5) b *= 0.9;
+  else if(aPart>1.5 && aPart<2.5) b *= 0.78;
+  else if(aPart>2.5) b *= 0.78*0.7;
+  b *= 0.7+r2*0.5;
+
+  // 8. glint (leaf and visor only, on home x)
+  float gl = aPart>0.5 ? 1.0-smoothstep(0.0,0.09,abs(position.x-uGlint)) : 0.0;
+  b += gl*1.2;
+
+  // 9. shine band
+  float band = turned.y - turned.x*0.5 - uShine;
+  float sh = exp(-band*band*4.0);
+  b += sh*1.3;
+
+  // 10. alpha
+  float a = mix(0.75,1.0,e);
+
+  // 11. size
+  vec4 mv = viewMatrix*vec4(pos,1.0);
+  gl_Position = projectionMatrix*mv;
+  gl_PointSize = uSize*(0.45+r2*r2*1.3)*(1.0+sh*0.6)/max(-mv.z,0.001);
+
+  vB = b; vA = a; vPart = aPart; vGlint = gl; vShine = sh;
+}
+`;
+
+const bustFrag = `
+uniform vec3 uInk;
+uniform vec3 uBlue;
+uniform vec3 uCream;
+varying float vB;
+varying float vA;
+varying float vPart;
+varying float vGlint;
+varying float vShine;
+void main(){
+  float d = length(gl_PointCoord-vec2(0.5));
+  if(d>0.5) discard;
+  float g = exp(-16.0*d*d)*vA;
+  vec3 col = mix(uInk, uCream, vShine*0.6);
+  if(vPart>2.5) col = mix(col, uBlue, 0.6);
+  col = mix(col, uBlue, vGlint*0.7);
+  gl_FragColor = vec4(col*vB*g, 1.0);
+}
+`;
+
+const lightVert = `
+uniform vec3 uLight;
+uniform float uOn;
+uniform float uDpr;
+void main(){
+  vec4 mv = viewMatrix*vec4(uLight,1.0);
+  gl_Position = projectionMatrix*mv;
+  gl_PointSize = 240.0*uDpr*uOn/max(-mv.z,0.001);
+}
+`;
+const lightFrag = `
+uniform float uOn;
+void main(){
+  float r = 2.0*length(gl_PointCoord-vec2(0.5));
+  if(r>1.0) discard;
+  float core = 1.0-smoothstep(0.08,0.14,r);
+  float glow = exp(-4.0*r)*0.45 + exp(-12.0*r)*0.7;
+  float v = (core+glow)*uOn;
+  gl_FragColor = vec4(vec3(v),1.0);
+}
+`;
+
+const dustVert = `
+uniform float uTime;
+uniform float uOn;
+uniform float uDpr;
+attribute float aRand;
+varying float vDim;
+void main(){
+  vec3 p = position;
+  p.y = mod(p.y+6.0+uTime*(0.03+aRand*0.05),12.0)-6.0;
+  p.x += sin(uTime*0.2+aRand*40.0)*0.15;
+  vec4 mv = viewMatrix*vec4(p,1.0);
+  gl_Position = projectionMatrix*mv;
+  gl_PointSize = 22.0*uDpr*(0.5+aRand)/max(-mv.z,0.001);
+  vDim = (0.1+aRand*0.18)*uOn;
+}
+`;
+const dustFrag = `
+uniform vec3 uInk;
+varying float vDim;
+void main(){
+  float d = length(gl_PointCoord-vec2(0.5));
+  if(d>0.5) discard;
+  gl_FragColor = vec4(uInk*vDim*exp(-16.0*d*d),1.0);
+}
+`;
+
+const bustMat = new THREE.ShaderMaterial({
+  uniforms,
+  vertexShader: bustVert,
+  fragmentShader: bustFrag,
+  transparent: true,
+  depthWrite: false,
+  blending: THREE.AdditiveBlending,
+});
+
+const lightMat = new THREE.ShaderMaterial({
+  uniforms: { uLight: uniforms.uLight, uOn: { value: 0 }, uDpr: { value: dpr } },
+  vertexShader: lightVert,
+  fragmentShader: lightFrag,
+  transparent: true,
+  depthWrite: false,
+  blending: THREE.AdditiveBlending,
+});
+
+const dustMat = new THREE.ShaderMaterial({
+  uniforms: { uTime: uniforms.uTime, uOn: { value: 0 }, uDpr: { value: dpr }, uInk: uniforms.uInk },
+  vertexShader: dustVert,
+  fragmentShader: dustFrag,
+  transparent: true,
+  depthWrite: false,
+  blending: THREE.AdditiveBlending,
+});
+
+/* dust: 900 points */
+{
+  const pos = new Float32Array(900 * 3);
+  const rnd = new Float32Array(900);
+  for (let i = 0; i < 900; i++) {
+    pos[i * 3] = -9 + 18 * R();
+    pos[i * 3 + 1] = -6 + 12 * R();
+    pos[i * 3 + 2] = -6 + 8 * R();
+    rnd[i] = R();
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  g.setAttribute('aRand', new THREE.BufferAttribute(rnd, 1));
+  const pts = new THREE.Points(g, dustMat);
+  pts.frustumCulled = false;
+  scene.add(pts);
+}
+
+/* light sprite */
+{
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(new Float32Array([0, 0, 0]), 3));
+  const pts = new THREE.Points(g, lightMat);
+  pts.frustumCulled = false;
+  scene.add(pts);
+}
+
+/* ——— build the dots from the model ——— */
+function buildDots(sourceGeom) {
+  const sampler = new MeshSurfaceSampler(new THREE.Mesh(sourceGeom)).build();
+
+  // 1. candidates
+  const cp = new Float32Array(CANDIDATES * 3);
+  const cn = new Float32Array(CANDIDATES * 3);
+  const tp = new THREE.Vector3();
+  const tn = new THREE.Vector3();
+  for (let i = 0; i < CANDIDATES; i++) {
+    sampler.sample(tp, tn);
+    cp[i * 3] = tp.x; cp[i * 3 + 1] = tp.y; cp[i * 3 + 2] = tp.z;
+    cn[i * 3] = tn.x; cn[i * 3 + 1] = tn.y; cn[i * 3 + 2] = tn.z;
+  }
+
+  // 2. leaves (x > 0.13, y > 0.6, outside the cylinder)
+  const isLeafCand = new Uint8Array(CANDIDATES);
+  const leaves = [];
+  for (let i = 0; i < CANDIDATES; i++) {
+    const x = cp[i * 3], y = cp[i * 3 + 1], z = cp[i * 3 + 2];
+    if (x > 0.13 && y > 0.6 && (x - 0.02) ** 2 + (z + 0.06) ** 2 > 0.035) {
+      isLeafCand[i] = 1;
+      leaves.push(i);
+    }
+  }
+  const keptLeaves = leaves.slice(0, Math.round(leaves.length * 0.6));
+
+  // 3. even density for the bust (voxel cap, leaves excluded)
+  const bustNeeded = DOT_COUNT - VISOR_COUNT - keptLeaves.length;
+  const keyArr = new Float64Array(CANDIDATES);
+  const vkey = (x, y, z) => {
+    const ix = Math.floor(x / VOX) + 512;
+    const iy = Math.floor(y / VOX) + 512;
+    const iz = Math.floor(z / VOX) + 512;
+    return (ix * 1024 + iy) * 1024 + iz;
+  };
+  const counts = new Map();
+  for (let i = 0; i < CANDIDATES; i++) {
+    if (isLeafCand[i]) continue;
+    const k = vkey(cp[i * 3], cp[i * 3 + 1], cp[i * 3 + 2]);
+    keyArr[i] = k;
+    counts.set(k, (counts.get(k) || 0) + 1);
+  }
+  const countVals = Array.from(counts.values());
+  const target = bustNeeded * 1.8;
+  const sumCap = (cap) => {
+    let s = 0;
+    for (const c of countVals) s += Math.min(c, cap);
+    return s;
+  };
+  let lo = 1;
+  let hi = countVals.reduce((a, b) => Math.max(a, b), 1);
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    if (sumCap(mid) >= target) hi = mid;
+    else lo = mid + 1;
+  }
+  const cap = lo;
+
+  const used = new Map();
+  const pool = [];
+  const inPool = new Uint8Array(CANDIDATES);
+  for (let i = 0; i < CANDIDATES; i++) {
+    if (isLeafCand[i]) continue;
+    const k = keyArr[i];
+    const u = used.get(k) || 0;
+    if (u < cap) {
+      used.set(k, u + 1);
+      pool.push(i);
+      inPool[i] = 1;
+    }
+  }
+  for (let i = pool.length - 1; i > 0; i--) {
+    const j = Math.floor(R() * (i + 1));
+    [pool[i], pool[j]] = [pool[j], pool[i]];
+  }
+  const bustIdx = pool.slice(0, bustNeeded);
+  if (bustIdx.length < bustNeeded) {
+    for (let i = 0; i < CANDIDATES && bustIdx.length < bustNeeded; i++) {
+      if (!isLeafCand[i] && !inPool[i]) bustIdx.push(i);
+    }
+  }
+
+  // 4. visor fitted to the face
+  const GX = 64, GY = 26;
+  const grid = new Float32Array(GX * GY).fill(-Infinity);
+  for (let i = 0; i < CANDIDATES; i++) {
+    if (cn[i * 3 + 2] < 0.2) continue;
+    const x = cp[i * 3], y = cp[i * 3 + 1], z = cp[i * 3 + 2];
+    if (x < -0.32 || x > 0.32 || y < 0.2 || y > 0.45) continue;
+    const ix = Math.min(GX - 1, Math.floor((x + 0.32) / 0.01));
+    const iy = Math.min(GY - 1, Math.floor((y - 0.2) / 0.01));
+    const k = ix * GY + iy;
+    if (z > grid[k]) grid[k] = z;
+  }
+  const faceH = (x, y) => {
+    const ix = Math.floor((x + 0.32) / 0.01);
+    const iy = Math.floor((y - 0.2) / 0.01);
+    let m = -Infinity;
+    for (let a = -1; a <= 1; a++) {
+      for (let b = -1; b <= 1; b++) {
+        const xi = ix + a, yi = iy + b;
+        if (xi < 0 || xi >= GX || yi < 0 || yi >= GY) continue;
+        const v = grid[xi * GY + yi];
+        if (v > m) m = v;
+      }
+    }
+    return m;
+  };
+
+  let front = -Infinity;
+  for (let x = -0.06; x <= 0.06 + 1e-9; x += 0.005) {
+    for (let y = 0.30; y <= 0.36 + 1e-9; y += 0.005) {
+      const h = faceH(x, y);
+      if (h > front) front = h;
+    }
+  }
+  front += CLEAR;
+  if (!Number.isFinite(front)) front = 0.1;
+
+  const topY = (x) => 0.378 - 0.022 * (x / W) ** 2;
+  const lowY = (x) => 0.282 + 0.032 * Math.exp(-((x / 0.034) ** 2)) + 0.026 * (x / W) ** 4;
+
+  let wrap = Infinity;
+  for (let x = -W; x <= W + 1e-9; x += 0.01) {
+    if (Math.abs(x) < 0.05) continue;
+    let need = -Infinity;
+    const lo2 = lowY(x), hi2 = topY(x);
+    for (let y = lo2; y <= hi2; y += 0.005) {
+      const h = faceH(x, y);
+      if (h > need) need = h;
+    }
+    const v = (front - need - 0.7 * CLEAR) / (x * x);
+    if (Number.isFinite(v) && v < wrap) wrap = v;
+  }
+  if (!Number.isFinite(wrap)) wrap = 2.4;
+
+  const zAt = (x) => front - wrap * x * x;
+  const nrmV = (x) => {
+    const nx = 2 * wrap * x, ny = 0, nz = 1;
+    const l = Math.hypot(nx, ny, nz);
+    return [nx / l, ny / l, nz / l];
+  };
+
+  // 5. assemble final dots (model units)
+  const P = new Float32Array(DOT_COUNT * 3);
+  const Nn = new Float32Array(DOT_COUNT * 3);
+  const PART = new Float32Array(DOT_COUNT);
+  let idx = 0;
+  const pushDot = (x, y, z, nx, ny, nz, part) => {
+    const k = idx++;
+    P[k * 3] = x; P[k * 3 + 1] = y; P[k * 3 + 2] = z;
+    Nn[k * 3] = nx; Nn[k * 3 + 1] = ny; Nn[k * 3 + 2] = nz;
+    PART[k] = part;
+  };
+
+  // visor: top bar (950), lower edge (380), ends (70 x2), lens (1500), arms (70 x2)
+  for (let k = 0; k < 950; k++) {
+    const x = -W + 2 * W * R();
+    const y = topY(x) - 0.016 * R() * R() + (R() - 0.5) * 0.0008;
+    const [nx, ny, nz] = nrmV(x);
+    pushDot(x, y, zAt(x) + 0.004, nx, ny, nz, 2);
+  }
+  for (let k = 0; k < 380; k++) {
+    const x = -W + 2 * W * R();
+    const y = lowY(x) + (R() - 0.5) * 0.0008;
+    const [nx, ny, nz] = nrmV(x);
+    pushDot(x, y, zAt(x) + 0.002, nx, ny, nz, 2);
+  }
+  for (const s of [-1, 1]) {
+    for (let k = 0; k < 70; k++) {
+      const x = s * W;
+      const y = lowY(x) + (topY(x) - lowY(x)) * R();
+      const [nx, ny, nz] = nrmV(x);
+      pushDot(x, y, zAt(x), nx, ny, nz, 2);
+    }
+  }
+  for (let k = 0; k < 1500; k++) {
+    const x = -W + 2 * W * R();
+    const y = lowY(x) + (topY(x) - lowY(x)) * R();
+    const [nx, ny, nz] = nrmV(x);
+    pushDot(x, y, zAt(x), nx, ny, nz, 3);
+  }
+  for (const s of [-1, 1]) {
+    for (let k = 0; k < 70; k++) {
+      const t = R();
+      const x = s * (W + 0.03 * t);
+      const y = topY(W) - 0.008;
+      const z = zAt(W) - 0.15 * t;
+      const [nx, ny, nz] = nrmV(s * W);
+      pushDot(x, y, z, nx, ny, nz, 2);
+    }
+  }
+
+  // leaves
+  for (const i of keptLeaves) {
+    pushDot(cp[i * 3], cp[i * 3 + 1], cp[i * 3 + 2], cn[i * 3], cn[i * 3 + 1], cn[i * 3 + 2], 1);
+  }
+  // bust
+  for (const i of bustIdx) {
+    pushDot(cp[i * 3], cp[i * 3 + 1], cp[i * 3 + 2], cn[i * 3], cn[i * 3 + 1], cn[i * 3 + 2], 0);
+  }
+  if (idx !== DOT_COUNT) throw new Error(`dot count ${idx} != ${DOT_COUNT}`);
+
+  // 6. depth values from candidates within R (first half of candidates)
+  const RS = 0.03;
+  const half = CANDIDATES >> 1;
+  const key3 = (ix, iy, iz) => ((ix + 1024) * 2048 + (iy + 1024)) * 2048 + (iz + 1024);
+  const hash = new Map();
+  for (let i = 0; i < half; i++) {
+    const k = key3(Math.floor(cp[i * 3] / RS), Math.floor(cp[i * 3 + 1] / RS), Math.floor(cp[i * 3 + 2] / RS));
+    let arr = hash.get(k);
+    if (!arr) { arr = []; hash.set(k, arr); }
+    arr.push(i);
+  }
+  const ridgeRaw = new Float32Array(DOT_COUNT);
+  const nbCount = new Uint32Array(DOT_COUNT);
+  for (let d = 0; d < DOT_COUNT; d++) {
+    const px = P[d * 3], py = P[d * 3 + 1], pz = P[d * 3 + 2];
+    const nx = Nn[d * 3], ny = Nn[d * 3 + 1], nz = Nn[d * 3 + 2];
+    const cx = Math.floor(px / RS), cy = Math.floor(py / RS), cz = Math.floor(pz / RS);
+    let cnt = 0, sx = 0, sy = 0, sz = 0;
+    for (let dx = -1; dx <= 1; dx++) {
+      for (let dy = -1; dy <= 1; dy++) {
+        for (let dz = -1; dz <= 1; dz++) {
+          const arr = hash.get(key3(cx + dx, cy + dy, cz + dz));
+          if (!arr) continue;
+          for (const i of arr) {
+            const ox = cp[i * 3] - px, oy = cp[i * 3 + 1] - py, oz = cp[i * 3 + 2] - pz;
+            if (ox * ox + oy * oy + oz * oz <= RS * RS) {
+              cnt++; sx += ox; sy += oy; sz += oz;
+            }
+          }
+        }
+      }
+    }
+    nbCount[d] = cnt;
+    if (cnt > 0) {
+      const ax = sx / cnt, ay = sy / cnt, az = sz / cnt;
+      ridgeRaw[d] = -(ax * nx + ay * ny + az * nz) / RS;
+    }
+  }
+  const absR = Float32Array.from(ridgeRaw, (v) => Math.abs(v)).sort();
+  const p90 = absR[Math.floor(0.9 * (absR.length - 1))] || 1;
+  const sortedCnt = Uint32Array.from(nbCount).sort();
+  const med = sortedCnt[sortedCnt.length >> 1];
+
+  const SHADE = new Float32Array(DOT_COUNT * 2);
+  for (let d = 0; d < DOT_COUNT; d++) {
+    SHADE[d * 2] = Math.max(-1, Math.min(1, ridgeRaw[d] / p90));
+    SHADE[d * 2 + 1] = med > 0 ? Math.max(0, Math.min(1, 1 - nbCount[d] / (0.55 * med))) : 0;
+  }
+
+  // 7. placement into world space, glint bounds, random per dot
+  const WORLD = new Float32Array(DOT_COUNT * 3);
+  const RAND = new Float32Array(DOT_COUNT);
+  let glintMin = Infinity, glintMax = -Infinity;
+  for (let d = 0; d < DOT_COUNT; d++) {
+    const wx = P[d * 3] * 2.8;
+    const wy = P[d * 3 + 1] * 2.8 - 0.68;
+    const wz = P[d * 3 + 2] * 2.8;
+    WORLD[d * 3] = wx; WORLD[d * 3 + 1] = wy; WORLD[d * 3 + 2] = wz;
+    RAND[d] = R();
+    if (PART[d] !== 0) {
+      if (wx < glintMin) glintMin = wx;
+      if (wx > glintMax) glintMax = wx;
+    }
+  }
+
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(WORLD, 3));
+  g.setAttribute('aNormal', new THREE.BufferAttribute(Nn, 3));
+  g.setAttribute('aRand', new THREE.BufferAttribute(RAND, 1));
+  g.setAttribute('aPart', new THREE.BufferAttribute(PART, 1));
+  g.setAttribute('aShade', new THREE.BufferAttribute(SHADE, 2));
+  return { geometry: g, glintMin, glintMax };
+}
+
+/* ——— loading ——— */
+async function downloadModel(onProgress) {
+  const res = await fetch(MODEL_URL);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const total = Number(res.headers.get('Content-Length')) || 0;
+  if (!res.body) return res.arrayBuffer();
+  const reader = res.body.getReader();
+  const chunks = [];
+  let got = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    chunks.push(value);
+    got += value.length;
+    onProgress(total ? got / total : Math.min(0.95, got / 1.5e6));
+  }
+  const all = new Uint8Array(got);
+  let off = 0;
+  for (const c of chunks) { all.set(c, off); off += c.length; }
+  return all.buffer;
+}
+
+function parseModel(buf) {
+  return new Promise((resolve, reject) => new GLTFLoader().parse(buf, '', resolve, reject));
+}
+
+/* ——— state ——— */
+let running = false;
+let t = 0;
+let readyFired = false;
+let lightOn = 0;
+let dustOn = 0;
+let glintMin = -1, glintMax = 1;
+const head = new THREE.Vector2();
+const headTarget = new THREE.Vector2();
+const lightTarget = new THREE.Vector3();
+const pointer = {
+  active: false,
+  kind: 'mouse',
+  lastT: -99,
+  hit: new THREE.Vector3(0, 0, 2.6),
+  ndc: new THREE.Vector2(0, 0),
+};
+
+function resize() {
+  const w = window.innerWidth;
+  const h = window.innerHeight;
+  const aspect = w / h;
+  renderer.setSize(w, h, false);
+  const dist = Math.max(2.35 / TAN15, 1.7 / (TAN15 * aspect));
+  camera.aspect = aspect;
+  camera.position.set(0, -0.15, dist);
+  camera.lookAt(TARGET);
+  camera.updateProjectionMatrix();
+  camera.updateMatrixWorld();
+  const worldPerPx = (2 * dist * TAN15) / h;
+  uniforms.uRingRadius.value = 92 * worldPerPx;
+  uniforms.uRingCenter.value.copy(TARGET);
+  uniforms.uSize.value = 26 * dpr;
+}
+window.addEventListener('resize', resize);
+
+function onPointer(e) {
+  pointer.ndc.set((e.clientX / window.innerWidth) * 2 - 1, -(e.clientY / window.innerHeight) * 2 + 1);
+  pointer.active = true;
+  pointer.kind = e.pointerType || 'mouse';
+  pointer.lastT = t;
+  raycaster.setFromCamera(pointer.ndc, camera);
+  const o = raycaster.ray.origin;
+  const d = raycaster.ray.direction;
+  if (Math.abs(d.z) > 1e-6) {
+    const tt = (2.6 - o.z) / d.z;
+    if (tt > 0) pointer.hit.copy(o).addScaledVector(d, tt);
+  }
+}
+window.addEventListener('pointermove', onPointer, { passive: true });
+window.addEventListener('pointerdown', onPointer, { passive: true });
+window.addEventListener('pointerout', (e) => { if (!e.relatedTarget) pointer.active = false; });
+
+/* ——— frame loop ——— */
+let last = performance.now();
+function frame(now) {
+  requestAnimationFrame(frame);
+  const dt = Math.min(0.05, (now - last) / 1000);
+  last = now;
+
+  if (running) {
+    t += dt;
+    const ease = (rate) => 1 - Math.exp(-dt * rate);
+    const assemble = reduced ? 1 : Math.min(1, t / 2.6);
+
+    if (pointer.kind === 'touch' && t - pointer.lastT > 1.5) pointer.active = false;
+
+    // light and head targets
+    let lt;
+    if (pointer.active) {
+      lt = pointer.hit;
+      headTarget.set(0.5 * pointer.ndc.x, 0.18 * pointer.ndc.y);
+    } else {
+      lt = lightTarget.set(1.9 * Math.sin(0.45 * t), 0.5 + 0.8 * Math.cos(0.33 * t), 2.6);
+      headTarget.set(0.35 * Math.sin(0.45 * t), 0.12 * Math.cos(0.33 * t));
+    }
+    const lightRate = 5;
+    const headRate = pointer.active ? 3 : 1.5;
+
+    const L = uniforms.uLight.value;
+    if (reduced) {
+      L.copy(lt);
+      lightOn = 1;
+      dustOn = 1;
+    } else {
+      L.lerp(lt, ease(lightRate));
+      head.lerp(headTarget, ease(headRate));
+      lightOn += (Math.min(1, 1.6 * assemble) - lightOn) * ease(4);
+      dustOn += (1 - dustOn) * ease(0.8);
+    }
+    uniforms.uHead.value.set(head.x, -head.y);
+
+    // shine and glint
+    let shine = 99;
+    let glint = -9;
+    if (!reduced) {
+      if (t >= 2.34 && t <= 4.54) {
+        const s = (t - 2.34) / 2.2;
+        shine = 2.8 - (1 - (1 - s) ** 2) * 7.4;
+      }
+      if (t >= 4.6) {
+        const c = (t - 4.6) % 4.2;
+        if (c < 0.9) {
+          const u = c / 0.9;
+          const from = glintMin - 0.15;
+          const to = glintMax + 0.15;
+          glint = from + (to - from) * u;
+        }
+      }
+    }
+
+    uniforms.uTime.value = reduced ? 0 : t;
+    uniforms.uAssemble.value = assemble;
+    uniforms.uShine.value = shine;
+    uniforms.uGlint.value = glint;
+    lightMat.uniforms.uOn.value = lightOn;
+    dustMat.uniforms.uOn.value = dustOn;
+
+    if (!readyFired && assemble > 0.55) {
+      readyFired = true;
+      page.dataset.phase = 'ready';
+    }
+  }
+
+  renderer.render(scene, camera);
+}
+
+/* ——— start ——— */
+async function start() {
+  resize();
+  setProgress(0);
+  try {
+    const buf = await downloadModel((p) => setProgress(p));
+    await new Promise((r) => setTimeout(r, 20));
+
+    const gltf = await parseModel(buf);
+    gltf.scene.updateMatrixWorld(true);
+    let meshNode = null;
+    gltf.scene.traverse((o) => { if (!meshNode && o.isMesh) meshNode = o; });
+    if (!meshNode) throw new Error('no mesh in model');
+    meshNode.updateMatrixWorld(true);
+    const geom = meshNode.geometry.clone().applyMatrix4(meshNode.matrixWorld);
+    if (!geom.attributes.normal) geom.computeVertexNormals();
+
+    const built = buildDots(geom);
+    glintMin = built.glintMin;
+    glintMax = built.glintMax;
+
+    const points = new THREE.Points(built.geometry, bustMat);
+    points.frustumCulled = false;
+    scene.add(points);
+
+    setProgress(1);
+    if (!reduced) await new Promise((r) => setTimeout(r, 380));
+
+    last = performance.now();
+    running = true;
+  } catch (err) {
+    console.error(err);
+    counterEl.textContent = 'Could not load';
+    labelEl.textContent = 'Refresh to try again';
+  }
+}
+
+requestAnimationFrame(frame);
+start();
+</script>
+</body>
+</html>
