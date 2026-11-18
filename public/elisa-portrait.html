@@ -3,75 +3,247 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#0d100d">
 <title>Elisa</title>
 <style>
-:root{--bg:#0d100d;--ink:#e9e6da;--muted:#a0a795;--sage:#b7c9a9}
-*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(--ink);font-family:Inter,"Helvetica Neue",Arial,sans-serif}
-#stage{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:pan-y}
-.grain{position:fixed;inset:-50%;pointer-events:none;opacity:.055;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");animation:grain 1s steps(6) infinite}
+:root{--bg:#0d100d;--ink:#e9e6da;--muted:#8d9686;--sage:#9db49a}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);overflow:hidden;
+  font-family:"Helvetica Neue",Helvetica,Arial,sans-serif;
+  padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+#stage{position:fixed;inset:0;width:100%;height:100%;display:block}
+.grain{position:fixed;inset:-50%;pointer-events:none;opacity:.08;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+  animation:grain 1s steps(6) infinite}
 @keyframes grain{0%{transform:translate(0,0)}20%{transform:translate(-3%,2%)}40%{transform:translate(2%,-4%)}60%{transform:translate(-2%,3%)}80%{transform:translate(4%,1%)}100%{transform:translate(0,0)}}
-.hero{position:fixed;left:6vw;bottom:8vh;opacity:0;transform:translateY(10px);transition:opacity 1.2s ease,transform 1.2s ease;pointer-events:none;text-shadow:0 2px 24px #0008}.hero.on{opacity:1;transform:none}h1{font-weight:400;font-size:clamp(34px,5vw,64px);margin:0;letter-spacing:-.04em}.sub{margin:.55em 0 0;color:var(--muted);font-size:clamp(13px,1.2vw,16px);letter-spacing:.03em}
-.loader{position:fixed;inset:0;display:grid;place-content:center;justify-items:center;gap:18px;background:radial-gradient(ellipse at center,#20271e 0%,#0d100d 62%);transition:opacity .8s ease;z-index:3}.loader.done{opacity:0;pointer-events:none}.ringbox{position:relative;width:112px;height:112px}.ringbox svg{width:100%;height:100%;transform:rotate(-90deg)}.ringbox circle{fill:none;stroke-width:2}.ringbox .track{stroke:#e9e6da20}.ringbox .fill{stroke:var(--sage);stroke-linecap:round;transition:stroke-dashoffset .15s linear}.count{position:absolute;inset:0;display:grid;place-items:center;font-size:19px;letter-spacing:.08em;font-variant-numeric:tabular-nums}.loadlabel{font-size:12px;color:var(--muted);letter-spacing:.12em;text-transform:uppercase}.error{max-width:min(80vw,560px);font-size:13px;line-height:1.6;color:#e8b7a8;text-align:center;display:none}.error.show{display:block}.hint{position:fixed;right:6vw;bottom:8vh;color:#a0a795;font-size:11px;letter-spacing:.14em;text-transform:uppercase;opacity:0;transition:opacity 1s}.hint.on{opacity:.8}
-@media(max-width:700px){.hero{left:7vw;bottom:7vh}.hint{right:7vw;bottom:7vh;font-size:9px}}
+.hero{position:fixed;left:6vw;bottom:9vh;opacity:0;transition:opacity 1.6s ease}
+.hero.on{opacity:1}
+h1{font-weight:400;font-size:clamp(28px,4vw,52px);margin:0;letter-spacing:-.01em}
+.sub{margin:.6em 0 0;color:var(--muted);font-size:clamp(13px,1.2vw,16px)}
+.loader{position:fixed;inset:0;display:grid;place-items:center;transition:opacity 1s ease}
+.loader.done{opacity:0;pointer-events:none}
+.ringbox{position:relative;width:150px;height:150px}
+.ringbox svg{width:100%;height:100%;transform:rotate(-90deg)}
+.ringbox circle{fill:none;stroke-width:1.5}
+.ringbox .track{stroke:rgba(233,230,218,.12)}
+.ringbox .fill{stroke:var(--sage);stroke-linecap:round;transition:stroke-dashoffset .2s linear}
+.count{position:absolute;inset:0;display:grid;place-items:center;font-size:20px;letter-spacing:.1em;font-variant-numeric:tabular-nums}
 </style>
 </head>
 <body>
-<canvas id="stage"></canvas><div class="grain"></div>
-<div class="loader" id="loader"><div class="ringbox"><svg viewBox="0 0 120 120"><circle class="track" cx="60" cy="60" r="53"/><circle class="fill" id="ring" cx="60" cy="60" r="53" stroke-dasharray="333" stroke-dashoffset="333"/></svg><div class="count" id="count">0%</div></div><div class="loadlabel" id="loadlabel">Loading Elisa's character</div><div class="error" id="error"></div></div>
-<div class="hero" id="hero"><h1>Elisa</h1><p class="sub">Grows quiet things with AI</p></div><div class="hint" id="hint">Move your cursor to explore</div>
+<canvas id="stage"></canvas>
+<div class="grain"></div>
+<div class="loader" id="loader">
+  <div class="ringbox">
+    <svg viewBox="0 0 150 150">
+      <circle class="track" cx="75" cy="75" r="68"></circle>
+      <circle class="fill" id="ring" cx="75" cy="75" r="68" stroke-dasharray="427.3" stroke-dashoffset="427.3"></circle>
+    </svg>
+    <div class="count" id="count">0</div>
+  </div>
+</div>
+<div class="hero" id="hero">
+  <h1>Elisa</h1>
+  <p class="sub">Grows quiet things with AI</p>
+</div>
+
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/fflate@0.6.9/umd/index.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/FBXLoader.js"></script>
 <script>
-(()=>{
-'use strict';
-const canvas=document.getElementById('stage'),loaderEl=document.getElementById('loader'),countEl=document.getElementById('count'),ringEl=document.getElementById('ring'),labelEl=document.getElementById('loadlabel'),errorEl=document.getElementById('error');
-const scene=new THREE.Scene();scene.background=new THREE.Color(0x0d100d);
-const camera=new THREE.PerspectiveCamera(32,1,0.01,1000);
-const renderer=new THREE.WebGLRenderer({canvas,antialias:true,alpha:false,powerPreference:'high-performance'});
-renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2));renderer.outputEncoding=THREE.sRGBEncoding;
-renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.15;
-scene.add(new THREE.HemisphereLight(0xdde8d6,0x24251f,2.0));
-const key=new THREE.DirectionalLight(0xffe8ce,2.6);key.position.set(4,6,7);scene.add(key);
-const fill=new THREE.DirectionalLight(0x9db7a5,1.5);fill.position.set(-5,2,3);scene.add(fill);
-const rim=new THREE.DirectionalLight(0xc8d4b8,2.0);rim.position.set(0,4,-5);scene.add(rim);
-const cursorLight=new THREE.PointLight(0xb9d7b0,0,8);scene.add(cursorLight);
-const modelRoot=new THREE.Group();scene.add(modelRoot);
-let model=null, targetYaw=0,targetPitch=0,currentYaw=0,currentPitch=0;
-const pointer={x:0,y:0,active:false};
-window.addEventListener('pointermove',e=>{pointer.x=(e.clientX/innerWidth-.5)*2;pointer.y=(e.clientY/innerHeight-.5)*2;pointer.active=true;});
-window.addEventListener('pointerleave',()=>pointer.active=false);
-function progress(p){const v=Math.max(0,Math.min(1,p));countEl.textContent=Math.round(v*100)+'%';ringEl.style.strokeDashoffset=333*(1-v);}
-function resize(){const w=innerWidth,h=innerHeight;renderer.setSize(w,h,false);camera.aspect=w/h;camera.updateProjectionMatrix();}
-addEventListener('resize',resize);resize();
-function showError(err){console.error('Elisa FBX load failed:',err);labelEl.textContent='Could not load the character';errorEl.textContent='The 3D model did not load. Check that /elisa-character.fbx exists in the deployed public folder and that the browser can reach the Three.js and fflate scripts.';errorEl.classList.add('show');countEl.textContent='!';}
-function finish(){loaderEl.classList.add('done');document.getElementById('hero').classList.add('on');document.getElementById('hint').classList.add('on');}
-if(!window.THREE||!THREE.FBXLoader){showError(new Error('Three.js FBXLoader script unavailable'));return;}
-const fbxLoader=new THREE.FBXLoader();
-fbxLoader.load('/elisa-character.fbx',object=>{
- try{
-  object.updateMatrixWorld(true);
-  const bounds=new THREE.Box3().setFromObject(object);
-  if(!Number.isFinite(bounds.min.x)||bounds.isEmpty())throw new Error('FBX has no visible mesh geometry');
-  const size=bounds.getSize(new THREE.Vector3()),center=bounds.getCenter(new THREE.Vector3());
-  const maxDim=Math.max(size.x,size.y,size.z);if(!Number.isFinite(maxDim)||maxDim<=0)throw new Error('Invalid FBX model dimensions');
-  object.position.sub(center);object.scale.setScalar(3.25/maxDim);object.updateMatrixWorld(true);
-  // Keep the FBX's original mesh materials and skinning; render the actual model, not a generated point-cloud approximation.
-  object.traverse(child=>{if(child.isMesh){child.frustumCulled=false;if(child.material){const mats=Array.isArray(child.material)?child.material:[child.material];mats.forEach(m=>{if(m){m.side=THREE.DoubleSide;m.needsUpdate=true;}});}}});
-  modelRoot.add(object);model=object;
-  const fittedBounds=new THREE.Box3().setFromObject(modelRoot), fittedSize=fittedBounds.getSize(new THREE.Vector3());
-  const verticalCenter=(fittedBounds.min.y+fittedBounds.max.y)/2;
-  modelRoot.position.y=-verticalCenter;
-  const fov=THREE.MathUtils.degToRad(camera.fov);let distance=(Math.max(fittedSize.y,fittedSize.x)/2)/Math.tan(fov/2)*1.35;
-  distance=Math.max(4.4,Math.min(distance,12));camera.position.set(0,0.05,distance);camera.lookAt(0,0,0);camera.near=0.01;camera.far=Math.max(100,distance*10);camera.updateProjectionMatrix();
-  progress(1);setTimeout(finish,350);
- }catch(e){showError(e);}
-},xhr=>{if(xhr.lengthComputable&&xhr.total>0)progress(xhr.loaded/xhr.total);else{labelEl.textContent='Downloading character model…';}},err=>showError(err));
-let last=0;function animate(t){requestAnimationFrame(animate);const dt=Math.min((t-last)/1000,.05);last=t;
- if(model){targetYaw=pointer.active?pointer.x*.25:Math.sin(t*.00025)*.035;targetPitch=pointer.active?-pointer.y*.08:0;currentYaw+=(targetYaw-currentYaw)*Math.min(1,dt*3);currentPitch+=(targetPitch-currentPitch)*Math.min(1,dt*3);modelRoot.rotation.y=currentYaw;modelRoot.rotation.x=currentPitch;cursorLight.position.set(pointer.x*2.2,pointer.y*-1.5,2.2);cursorLight.intensity+=(pointer.active?2.2:0-cursorLight.intensity)*Math.min(1,dt*3);}
- renderer.render(scene,camera);
-}requestAnimationFrame(animate);
+(function(){
+const TOTAL=66000;
+const PLAN=[['head',20000],['hair',16000],['bun',6000],['neck',4000],['shirt',14500],['visor',3000],['leaf',1500],['strand',1000]];
+const C={skin:[0.86,0.7,0.57],hair:[0.06,0.045,0.04],linen:[0.78,0.74,0.64],visor:[0.82,0.86,0.8],lens:[0.42,0.58,0.45],leaf:[0.42,0.58,0.36]};
+const TY={skin:0,hair:1,linen:2,visor:3,leaf:4,lens:5};
+const R=Math.random, clamp=(x,a,b)=>Math.min(b,Math.max(a,x));
+const tick=()=>new Promise(r=>setTimeout(r,0));
+function dirS(){const u=R()*2-1,t=R()*Math.PI*2,s=Math.sqrt(1-u*u);return [s*Math.cos(t),u,s*Math.sin(t)];}
+function push(out,x,y,z,k,j){const cc=C[k];out.push(x,y,z,TY[k],cc[0]+(R()-.5)*j,cc[1]+(R()-.5)*j,cc[2]+(R()-.5)*j);}
+
+const GEN={
+  head(n,o){for(let i=0;i<n;i++){const d=dirS(),r=1-R()*0.04;
+    let x=d[0]*0.62*r,y=0.55+d[1]*0.78*r,z=d[2]*0.6*r;
+    if(z<-0.45){i--;continue;}
+    if(y<0.1){const k=0.78+0.22*clamp((y+0.2)/0.3,0,1);x*=k;z*=k;}
+    push(o,x,y,z,'skin',0.04);}},
+  hair(n,o){for(let i=0;i<n;i++){const d=dirS();
+    if(d[1]<-0.05){i--;continue;}
+    if(d[1]<0.35&&d[2]>0.35){i--;continue;}
+    const a=Math.atan2(d[2],d[0]);
+    const r=1.04+0.015*Math.sin(5*a+3*d[1])+R()*0.01;
+    push(o,d[0]*0.62*r,0.55+d[1]*0.78*r,d[2]*0.6*r,'hair',0.05);}},
+  bun(n,o){for(let i=0;i<n;i++){const d=dirS();
+    push(o,d[0]*0.27,1.38+d[1]*0.27,-0.5+d[2]*0.27,'hair',0.05);}},
+  neck(n,o){for(let i=0;i<n;i++){const a=R()*Math.PI*2,r=0.22*(0.92+0.08*R());
+    push(o,Math.cos(a)*r,-0.3+R()*0.55,Math.sin(a)*r*0.9-0.02,'skin',0.03);}},
+  shirt(n,o){for(let i=0;i<n;i++){const d=dirS();
+    const x=d[0]*1.05,y=-1.05+d[1]*0.85,z=d[2]*0.5;
+    if(y>-0.2||z<-0.2){i--;continue;}
+    if(z>0.05&&y>-0.6&&Math.abs(x)<0.22){i--;continue;}
+    push(o,x,y,z,'linen',0.05);}},
+  visor(n,o){for(let i=0;i<n;i++){const u=R()*2-1;let v,k;
+    if(R()<0.4){v=R()<0.5?-1:1;k='visor';}
+    else{v=R()*2-1;k=(Math.abs(u)<0.8&&Math.abs(v)<0.8)?'lens':'visor';}
+    push(o,u*0.92,0.5+v*0.1,0.56-0.2*u*u,k,0.03);}},
+  leaf(n,o){const base=[0.28,1.5,-0.2];
+    for(let i=0;i<n;i++){const k=i%3;const ang=[-0.5,0.2,0.9][k];
+      const dx=Math.cos(ang),dy=Math.sin(ang),L=0.17,W=0.06;
+      const cx=base[0]+dx*L*0.9,cy=base[1]+dy*L*0.9,cz=base[2]+k*0.03;
+      const al=(R()*2-1)*L,ac=(R()*2-1)*W*Math.sqrt(Math.max(0,1-(al/L)*(al/L)));
+      push(o,cx+dx*al-dy*ac,cy+dy*al+dx*ac,cz,'leaf',0.05);}},
+  strand(n,o){for(let i=0;i<n;i++){const side=R()<0.5?-1:1,t=R();
+    push(o,side*(0.5+0.08*t)+(R()-0.5)*0.02,0.5-t*1.0,0.24+(R()-0.5)*0.03,'hair',0.04);}}
+};
+
+/* ---- three.js setup ---- */
+const canvas=document.getElementById('stage');
+const renderer=new THREE.WebGLRenderer({canvas,antialias:true});
+renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2));
+renderer.setClearColor(0x0d100d,1);
+const scene=new THREE.Scene();
+const camera=new THREE.PerspectiveCamera(30,1,0.1,100);
+camera.position.set(0,0.25,6.4);camera.lookAt(0,0.2,0);
+const U={uTime:{value:0},uYaw:{value:0},uPitch:{value:0},uCursor:{value:new THREE.Vector2(0,0)},
+  uCursorStrength:{value:0},uSweep:{value:99},uGlintOn:{value:0},uGlintMode:{value:1},uGlintX:{value:0},
+  uSize:{value:0.018},uPixel:{value:800}};
+function resize(){
+  renderer.setSize(window.innerWidth,window.innerHeight,false);
+  camera.aspect=window.innerWidth/window.innerHeight;camera.updateProjectionMatrix();
+  U.uPixel.value=renderer.getPixelRatio()*window.innerHeight/(2*Math.tan(THREE.MathUtils.degToRad(15)));
+}
+window.addEventListener('resize',resize);resize();
+
+const cursor={x:0,y:0,active:false};
+window.addEventListener('pointermove',e=>{cursor.x=(e.clientX/window.innerWidth)*2-1;cursor.y=-((e.clientY/window.innerHeight)*2-1);cursor.active=true;});
+window.addEventListener('pointerleave',()=>{cursor.active=false;});
+
+const VERT=`
+uniform float uTime,uYaw,uPitch,uSweep,uGlintOn,uGlintMode,uGlintX,uSize,uPixel,uCursorStrength;
+uniform vec2 uCursor;
+attribute vec3 aStart,aColor;
+attribute float aDelay,aType;
+varying float vLight,vAlpha;varying vec3 vColor;
+void main(){
+  float p=clamp((uTime-aDelay)/1.8,0.0,1.0);
+  float e=1.0-pow(1.0-p,3.0);
+  vec3 pos=mix(aStart,position,e);
+  pos.z+=sin(p*3.14159)*0.8;
+  float cy=cos(uYaw),sy=sin(uYaw),cx=cos(uPitch),sx=sin(uPitch);
+  vec3 r=vec3(pos.x*cy+pos.z*sy,pos.y,-pos.x*sy+pos.z*cy);
+  r=vec3(r.x,r.y*cx-r.z*sx,r.y*sx+r.z*cx);
+  vec4 mv=modelViewMatrix*vec4(r,1.0);
+  gl_Position=projectionMatrix*mv;
+  float d=distance(r.xy,uCursor);
+  float glow=exp(-d*d*9.0)*uCursorStrength;
+  float band=exp(-pow((r.x*0.7+r.y*0.9)-uSweep,2.0)*18.0);
+  float isVisor=(aType==3.0||aType==5.0)?1.0:0.0;
+  float isLeaf=(aType==4.0)?1.0:0.0;
+  float glint=uGlintOn*(uGlintMode*isVisor+(1.0-uGlintMode)*isLeaf)*exp(-pow(r.x-uGlintX,2.0)*10.0);
+  vLight=0.55+glow*0.9+band*0.7+glint*0.8;
+  vColor=aColor;vAlpha=e;
+  gl_PointSize=uSize*uPixel/-mv.z*(0.4+0.6*e);
+}`;
+const FRAG=`
+varying float vLight,vAlpha;varying vec3 vColor;
+void main(){
+  float d=length(gl_PointCoord-0.5);
+  if(d>0.5)discard;
+  float a=smoothstep(0.5,0.0,d)*vAlpha;
+  gl_FragColor=vec4(vColor*vLight,a*0.9);
+}`;
+
+function setProgress(p){
+  document.getElementById('ring').style.strokeDashoffset=427.3*(1-p);
+  document.getElementById('count').textContent=Math.round(p*100);
+}
+
+async function build(){
+  const data=[];let done=0;
+  for(const [kind,n] of PLAN){
+    let left=n;
+    while(left>0){const k=Math.min(1000,left);GEN[kind](k,data);left-=k;done+=k;setProgress(done/TOTAL);await tick();}
+  }
+  const N=data.length/7;
+  const target=new Float32Array(N*3),col=new Float32Array(N*3),typ=new Float32Array(N),
+        start=new Float32Array(N*3),delay=new Float32Array(N);
+  for(let i=0;i<N;i++){
+    const o=i*7;
+    target.set([data[o],data[o+1],data[o+2]],i*3);
+    typ[i]=data[o+3];
+    col.set([data[o+4],data[o+5],data[o+6]],i*3);
+    const a=R()*Math.PI*2,rr=3.2;
+    start.set([Math.cos(a)*rr,Math.sin(a)*rr*0.85+0.1,-1.2+R()*0.4],i*3);
+    delay[i]=0.1+R()*0.9;
+  }
+  const g=new THREE.BufferGeometry();
+  g.setAttribute('position',new THREE.BufferAttribute(target,3));
+  g.setAttribute('aColor',new THREE.BufferAttribute(col,3));
+  g.setAttribute('aType',new THREE.BufferAttribute(typ,1));
+  g.setAttribute('aStart',new THREE.BufferAttribute(start,3));
+  g.setAttribute('aDelay',new THREE.BufferAttribute(delay,1));
+  const mat=new THREE.ShaderMaterial({uniforms:U,vertexShader:VERT,fragmentShader:FRAG,
+    transparent:true,depthWrite:false,blending:THREE.AdditiveBlending});
+  const pts=new THREE.Points(g,mat);pts.frustumCulled=false;
+  scene.add(pts);
+
+  /* dust */
+  const DN=600,dp=new Float32Array(DN*4);
+  for(let i=0;i<DN;i++){dp.set([(R()*2-1)*4,R()*6,(R()*2-1)*2,R()],i*4);}
+  const dg=new THREE.BufferGeometry();
+  const dpos=new Float32Array(DN*3),dS=new Float32Array(DN);
+  for(let i=0;i<DN;i++){dpos.set([dp[i*4],dp[i*4+1],dp[i*4+2]],i*3);dS[i]=dp[i*4+3];}
+  dg.setAttribute('position',new THREE.BufferAttribute(dpos,3));
+  dg.setAttribute('aS',new THREE.BufferAttribute(dS,1));
+  const dmat=new THREE.ShaderMaterial({uniforms:{uTime:U.uTime,uPixel:U.uPixel},
+    vertexShader:`uniform float uTime,uPixel;attribute float aS;
+      void main(){vec3 p=position;p.y=mod(p.y+uTime*0.03*(0.5+aS),6.0)-3.0;
+      vec4 mv=modelViewMatrix*vec4(p,1.0);gl_Position=projectionMatrix*mv;
+      gl_PointSize=(1.2+aS*1.8)*0.012*uPixel/-mv.z;}`,
+    fragmentShader:`void main(){float d=length(gl_PointCoord-0.5);if(d>0.5)discard;
+      gl_FragColor=vec4(0.8,0.75,0.6,(0.5-d)*0.4);}`,
+    transparent:true,depthWrite:false,blending:THREE.AdditiveBlending});
+  const dust=new THREE.Points(dg,dmat);dust.frustumCulled=false;scene.add(dust);
+
+  return {mat};
+}
+
+let assembleAt=0,started=false;
+const mouseSmooth={x:0,y:0};
+function loop(now){
+  const s=now/1000;
+  if(started){
+    const ta=(now-assembleAt)/1000;
+    U.uTime.value=Math.max(0,ta);
+    // sweep once
+    const st=ta-3.0;
+    U.uSweep.value=(st>0&&st<2.2)?(-2.5+st/2.2*5):99;
+    // glint cycle every 6s after assembly
+    if(ta>5.5){
+      const gph=(ta-5.5)%6.0;
+      if(gph<1.4){U.uGlintOn.value=1;U.uGlintMode.value=1;U.uGlintX.value=-1.2+gph/1.4*2.4;}
+      else if(gph>=1.6&&gph<3.0){U.uGlintOn.value=1;U.uGlintMode.value=0;U.uGlintX.value=-1.2+(gph-1.6)/1.4*2.4;}
+      else U.uGlintOn.value=0;
+    }
+    // cursor light + head turn
+    const tx=cursor.active?cursor.x:0, ty=cursor.active?cursor.y:0;
+    mouseSmooth.x+=(tx-mouseSmooth.x)*0.04;mouseSmooth.y+=(ty-mouseSmooth.y)*0.04;
+    U.uYaw.value=mouseSmooth.x*0.35+Math.sin(s*0.3)*0.03;
+    U.uPitch.value=-mouseSmooth.y*0.1;
+    U.uCursor.value.set(mouseSmooth.x*1.2,mouseSmooth.y*1.2+0.2);
+    U.uCursorStrength.value+=((cursor.active?1:0)-U.uCursorStrength.value)*0.05;
+  }
+  renderer.render(scene,camera);
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+
+build().then(()=>{
+  setProgress(1);
+  setTimeout(()=>{
+    document.getElementById('loader').classList.add('done');
+    document.getElementById('hero').classList.add('on');
+  },300);
+  assembleAt=performance.now();started=true;
+});
 })();
 </script>
-</body></html>
+</body>
+</html>

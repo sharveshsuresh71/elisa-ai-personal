@@ -127,10 +127,3 @@ Set these variables in the agent/Railway worker service:
 - `ELEVENLABS_VOICE_ID=rhS7yjXTU4uIlRxXhNW7`
 
 After deploying both services, press TALK TO ELISA. ELISA should immediately speak a short greeting, then answer each spoken turn. The frontend also unlocks LiveKit audio from the button gesture to avoid browser autoplay blocking.
-
-
-## Elisa character portrait (Nina FBX)
-
-The `public/elisa-portrait.html` experience now loads `public/elisa-character.fbx`
-and renders the character as an animated particle portrait with the existing cursor
-lighting and assembly effect. Keep both files together in `public/` when deploying.
