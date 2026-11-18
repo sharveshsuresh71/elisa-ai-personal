@@ -24,9 +24,13 @@ export default function JarvisOrb() {
   const [status, setStatus] = useState<TrackerStatus>({ hands: 0, mode: "idle" });
   const [error, setError] = useState<string | null>(null);
   const [portrait, setPortrait] = useState(false);
+  const portraitRef = useRef<HTMLIFrameElement | null>(null);
 
   const voice = useVoiceAgent({
-    onVoiceLevel: (level) => sceneRef.current?.setVoiceLevel(level),
+    onVoiceLevel: (level) => {
+      sceneRef.current?.setVoiceLevel(level);
+      portraitRef.current?.contentWindow?.postMessage({ type: "elisa-level", level }, "*");
+    },
   });
 
   useEffect(() => {
@@ -118,6 +122,7 @@ export default function JarvisOrb() {
 
       {portrait && (
         <iframe
+          ref={portraitRef}
           src="/elisa-portrait.html"
           title="Elisa portrait"
           style={{ position: "fixed", inset: 0, width: "100%", height: "100%", border: 0, zIndex: 15 }}

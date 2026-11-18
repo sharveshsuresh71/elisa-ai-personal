@@ -61,7 +61,7 @@ renderer.setClearColor(0x0d100d,1);
 const scene=new THREE.Scene();
 const camera=new THREE.PerspectiveCamera(30,1,0.1,100);
 camera.position.set(0,0.1,5.2);camera.lookAt(0,0,0);
-const U={uTime:{value:0},uYaw:{value:0},uPitch:{value:0},uCursor:{value:new THREE.Vector2(0,0)},uCursorStrength:{value:0},uSweep:{value:99},uSize:{value:0.012},uPixel:{value:800}};
+const U={uTime:{value:0},uYaw:{value:0},uPitch:{value:0},uCursor:{value:new THREE.Vector2(0,0)},uCursorStrength:{value:0},uSweep:{value:99},uMouth:{value:0},uIdle:{value:0},uSize:{value:0.024},uPixel:{value:800}};
 function resize(){renderer.setSize(innerWidth,innerHeight,false);camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();
   U.uPixel.value=renderer.getPixelRatio()*innerHeight/(2*Math.tan(THREE.MathUtils.degToRad(15)));}
 addEventListener('resize',resize);resize();
@@ -69,20 +69,24 @@ const cursor={x:0,y:0,active:false};
 addEventListener('pointermove',e=>{cursor.x=(e.clientX/innerWidth)*2-1;cursor.y=-((e.clientY/innerHeight)*2-1);cursor.active=true;});
 addEventListener('pointerleave',()=>{cursor.active=false;});
 const VERT=`
-uniform float uTime,uYaw,uPitch,uSweep,uSize,uPixel,uCursorStrength;uniform vec2 uCursor;
+uniform float uTime,uYaw,uPitch,uSweep,uSize,uPixel,uCursorStrength,uMouth,uIdle;uniform vec2 uCursor;
 attribute vec3 aStart,aColor;attribute float aDelay;
 varying float vLight,vAlpha;varying vec3 vColor;
 void main(){
   float p=clamp((uTime-aDelay)/1.8,0.0,1.0);float e=1.0-pow(1.0-p,3.0);
   vec3 pos=mix(aStart,position,e);pos.z+=sin(p*3.14159)*0.25;
+  float mouth=exp(-pow(position.x/0.14,2.0))*exp(-pow((position.y-0.2)/0.075,2.0));
+  float open=(uMouth+uIdle)*mouth*smoothstep(0.24,0.14,position.y);
+  pos.y-=open*0.06;pos.z+=open*0.02;
+  pos.y+=sin(uTime*1.3+position.x*3.0)*0.006;
   float cy=cos(uYaw),sy=sin(uYaw),cx=cos(uPitch),sx=sin(uPitch);
   vec3 r=vec3(pos.x*cy+pos.z*sy,pos.y,-pos.x*sy+pos.z*cy);
   r=vec3(r.x,r.y*cx-r.z*sx,r.y*sx+r.z*cx);
   vec4 mv=modelViewMatrix*vec4(r,1.0);gl_Position=projectionMatrix*mv;
   float d=distance(r.xy,uCursor);float glow=exp(-d*d*12.0)*uCursorStrength;
   float band=exp(-pow((r.x*0.7+r.y*0.9)-uSweep,2.0)*18.0);
-  vLight=0.5+glow*0.9+band*0.7;vColor=aColor;vAlpha=e;
-  gl_PointSize=uSize*uPixel/-mv.z*(0.4+0.6*e);
+  vLight=0.85+glow*0.9+band*0.9;vColor=aColor;vAlpha=e;
+  gl_PointSize=uSize*uPixel/-mv.z*(0.5+0.7*e);
 }`;
 const FRAG=`varying float vLight,vAlpha;varying vec3 vColor;
 void main(){float d=length(gl_PointCoord-0.5);if(d>0.5)discard;
@@ -94,7 +98,7 @@ async function build(){
   const N=P.length;const target=new Float32Array(N*3),col=new Float32Array(N*3),start=new Float32Array(N*3),delay=new Float32Array(N);
   for(let i=0;i<N;i++){
     const q=P[i];target.set([q[0],q[1],q[2]],i*3);
-    const b=q[3];col.set([0.27+0.73*b,0.16+0.62*b,0.12+0.45*b],i*3);
+    const b=q[3];col.set([0.55+0.45*b,0.36+0.5*b,0.26+0.36*b],i*3);
     const a=R()*Math.PI*2;start.set([Math.cos(a)*3.2,Math.sin(a)*3.2*0.85+0.1,-1.2+R()*0.4],i*3);
     delay[i]=0.1+R()*0.9;
     if(i%500===0){setProgress(i/N);await new Promise(r=>setTimeout(r,0));}
@@ -121,13 +125,17 @@ async function build(){
   const dust=new THREE.Points(dg,dmat);dust.frustumCulled=false;scene.add(dust);
 }
 const mouse={x:0,y:0};
+let mouthTarget=0;
+addEventListener('message',e=>{if(e.data&&e.data.type==='elisa-level'){mouthTarget=Math.min(1,Math.max(0,Number(e.data.level)||0)*2.2);}});
 function loop(now){
   if(started){
     const ta=(now-assembleAt)/1000;U.uTime.value=Math.max(0,ta);
     const st=ta-3.0;U.uSweep.value=(st>0&&st<2.2)?(-2.5+st/2.2*5):99;
     const tx=cursor.active?cursor.x:0,ty=cursor.active?cursor.y:0;
     mouse.x+=(tx-mouse.x)*0.04;mouse.y+=(ty-mouse.y)*0.04;
-    U.uYaw.value=mouse.x*0.3;U.uPitch.value=-mouse.y*0.08;
+    U.uYaw.value=mouse.x*0.3+Math.sin(ta*0.5)*0.08;U.uPitch.value=-mouse.y*0.08+Math.sin(ta*0.37)*0.03;
+    U.uMouth.value+=(mouthTarget-U.uMouth.value)*0.35;
+    U.uIdle.value=(Math.sin(ta*9.0)*0.5+0.5)*0.12*Math.min(1,mouthTarget*4.0+0.0);
     U.uCursor.value.set(mouse.x*1.0,mouse.y*1.0);
     U.uCursorStrength.value+=((cursor.active?1:0)-U.uCursorStrength.value)*0.05;
   }
