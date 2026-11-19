@@ -7,22 +7,23 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
 (()=>{
-const canvas=document.querySelector('#stage'),renderer=new THREE.WebGLRenderer({canvas,antialias:true,alpha:false});renderer.setPixelRatio(Math.min(devicePixelRatio||1,2));renderer.setClearColor(0x100d0c,1);
+const canvas=document.querySelector('#stage'),renderer=new THREE.WebGLRenderer({canvas,antialias:true,alpha:false});renderer.setPixelRatio(Math.min(devicePixelRatio||1,2));renderer.setClearColor(0x100d0c,1);canvas.style.background='#100d0c';
 const scene=new THREE.Scene();const camera=new THREE.PerspectiveCamera(38,1,.1,100);camera.position.set(0,0,8);camera.lookAt(0,0,0);
 const U={uTime:{value:0},uYaw:{value:0},uCursor:{value:new THREE.Vector2()},uCursorPower:{value:0},uPixel:{value:800}};
 function resize(){renderer.setSize(innerWidth,innerHeight,false);camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();U.uPixel.value=renderer.getPixelRatio()*innerHeight/(2*Math.tan(THREE.MathUtils.degToRad(19)));}addEventListener('resize',resize);resize();
 const pointer={x:0,y:0,active:false};addEventListener('pointermove',e=>{pointer.x=e.clientX/innerWidth*2-1;pointer.y=1-e.clientY/innerHeight*2;pointer.active=true});addEventListener('pointerleave',()=>pointer.active=false);
 const vertex=`uniform float uTime,uYaw,uPixel,uCursorPower;uniform vec2 uCursor;attribute vec3 aColor;attribute float aHead,aSeed;varying vec3 vColor;varying float vAlpha,vGlow;void main(){vec3 p=position;float yaw=uYaw*aHead;float pivotY=-.194;float py=p.y-pivotY;float c=cos(yaw),s=sin(yaw);float x=p.x*c+p.z*s;float z=-p.x*s+p.z*c;p.x=x;p.y=py*c-p.z*s+pivotY;p.z=py*s+p.z*c;vec4 mv=modelViewMatrix*vec4(p,1.);gl_Position=projectionMatrix*mv;float d=distance(p.xy,uCursor);vGlow=exp(-d*d*3.8)*uCursorPower;vColor=aColor;vAlpha=.72+.22*sin(uTime*1.1+aSeed*19.);gl_PointSize=(1.25+aSeed*1.15+vGlow*1.1)*uPixel/-mv.z;}`;
-const fragment=`varying vec3 vColor;varying float vAlpha,vGlow;void main(){float d=length(gl_PointCoord-.5);if(d>.5)discard;float soft=1.-smoothstep(.22,.5,d);vec3 col=vColor*(.94+vGlow*.42);gl_FragColor=vec4(col,soft*vAlpha);}`;
+const fragment=`varying vec3 vColor;varying float vAlpha,vGlow;void main(){float d=length(gl_PointCoord-.5);if(d>.5)discard;float soft=1.-smoothstep(.18,.5,d);vec3 col=vColor*(.98+vGlow*.72);gl_FragColor=vec4(col,soft*vAlpha);}`;
 function loadParticles(){return new Promise((resolve,reject)=>{const img=new Image();img.onload=()=>{try{const w=img.naturalWidth,h=img.naturalHeight,off=document.createElement('canvas');off.width=w;off.height=h;const cx=off.getContext('2d',{willReadFrequently:true});cx.drawImage(img,0,0);const pix=cx.getImageData(0,0,w,h).data;const positions=[],colors=[],heads=[],seeds=[];const step=2;const worldH=5.55,worldW=worldH*w/h;let count=0;
 for(let y=0;y<h;y+=step){for(let x=0;x<w;x+=step){const i=(y*w+x)*4,r=pix[i],g=pix[i+1],b=pix[i+2];const lum=.2126*r+.7152*g+.0722*b;const nx=x/w,ny=y/h;
 // Suppress the near-black room while retaining dark hair and clothing inside the subject silhouette.
 let inSubject=false;if(ny<.58){const cxn=.5,rx=ny<.12?.43:.48;inSubject=Math.abs(nx-cxn)<rx;}else{const bodyWidth=.5+Math.min(.12,(ny-.58)*.32);inSubject=Math.abs(nx-.5)<bodyWidth;}
 if(!inSubject||lum<9)continue;
 // Slightly lift shadows without washing out the natural skin, hair, or dark clothing colors.
+// Source luminance controls where dots exist; every visible dot is warm ivory-white.
 const lift=v=>Math.min(1,Math.pow(v/255,.82)*.93+.012);const cr=lift(r),cg=lift(g),cb=lift(b);
 const jitter=(Math.random()-.5)*.008;const px=(nx-.5)*worldW+jitter,py=(.5-ny)*worldH+jitter;
-positions.push(px,py,(Math.random()-.5)*.035);colors.push(cr,cg,cb);
+positions.push(px,py,(Math.random()-.5)*.035);const shade=.78+Math.min(.22,lum/255*.22);const ivory=shade;colors.push(ivory,ivory*.985,ivory*.93);
 // Head region only: head pivots at the base of the neck. Chest/shoulders remain locked.
 heads.push(ny<.535?1:0);seeds.push(Math.random());count++;
 }}
