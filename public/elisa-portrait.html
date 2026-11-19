@@ -35,11 +35,16 @@ let portraitGroup=null;function resize(){renderer.setSize(innerWidth,innerHeight
 const pointer={x:0,y:0,inside:false};addEventListener('pointermove',e=>{pointer.x=(e.clientX/innerWidth-.5)*6.4;pointer.y=(.5-e.clientY/innerHeight)*5.6;pointer.inside=true;});addEventListener('pointerleave',()=>pointer.inside=false);
 const vertex=`
 uniform float uTime,uMousePower,uYaw,uSweep,uPixelRatio;uniform vec2 uMouse;
-attribute vec3 aColor;attribute float aDelay,aHead,aDepth,aBrightness;varying vec3 vColor;varying float vAlpha,vGlow,vSweep;
+attribute vec3 aColor;attribute float aDelay,aHead,aDepth,aBrightness,aEye;varying vec3 vColor;varying float vAlpha,vGlow,vSweep;
 void main(){float t=clamp((uTime-aDelay)/1.65,0.0,1.0);float e=1.0-pow(1.0-t,3.0);vec3 p=mix(position*1.7,position,e);p.z+=sin(t*3.14159)*.75+aDepth;
 float ang=uYaw*aHead;float c=cos(ang),s=sin(ang);vec2 q=p.xy-vec2(0.0,0.72);p.xy=vec2(q.x*c+q.y*s,-q.x*s+q.y*c)+vec2(0.0,0.72);
-vec4 mv=modelViewMatrix*vec4(p,1.0);gl_Position=projectionMatrix*mv;float d=distance(p.xy,uMouse);vGlow=exp(-d*d*2.6)*uMousePower;vSweep=exp(-pow((p.x*.48+p.y*.88)-uSweep,2.0)*16.0);vColor=aColor;vAlpha=e;gl_PointSize=clamp((1.15+aBrightness*1.15)*uPixelRatio*8.8/-mv.z,1.0,5.2);}`;
-const fragment=`varying vec3 vColor;varying float vAlpha,vGlow,vSweep;void main(){float d=length(gl_PointCoord-.5);if(d>.5)discard;float edge=1.0-smoothstep(.25,.5,d);float light=.72+vGlow*1.8+vSweep*.75;gl_FragColor=vec4(vColor*light,edge*vAlpha*(.56+vGlow*.25));}`;
+// The dark iris/lash particles subtly track the visitor; a soft periodic blink keeps the gaze alive.
+float gazeX=clamp(uMouse.x/3.2,-1.0,1.0);float gazeY=clamp(uMouse.y/2.8,-1.0,1.0);
+p.x+=gazeX*0.075*aEye;p.y+=gazeY*0.028*aEye;
+float blink=exp(-pow((mod(uTime+0.65,5.2)-0.10)/0.075,2.0));
+float eyeCenter=1.38;p.y=eyeCenter+(p.y-eyeCenter)*(1.0-0.72*blink*aEye);
+vec4 mv=modelViewMatrix*vec4(p,1.0);gl_Position=projectionMatrix*mv;float d=distance(p.xy,uMouse);vGlow=exp(-d*d*2.6)*uMousePower;vSweep=exp(-pow((p.x*.48+p.y*.88)-uSweep,2.0)*16.0);vColor=aColor;vAlpha=e;gl_PointSize=clamp((1.45+aBrightness*1.55)*uPixelRatio*10.8/-mv.z,1.15,6.4);}`;
+const fragment=`varying vec3 vColor;varying float vAlpha,vGlow,vSweep;void main(){float d=length(gl_PointCoord-.5);if(d>.5)discard;float edge=1.0-smoothstep(.25,.5,d);float light=.72+vGlow*1.8+vSweep*.75;gl_FragColor=vec4(vColor*light,edge*vAlpha*(.82+vGlow*.38));}`;
 function pointInPoly(x,y,poly){let inside=false;for(let i=0,j=poly.length-1;i<poly.length;j=i++){const xi=poly[i][0],yi=poly[i][1],xj=poly[j][0],yj=poly[j][1];const hit=((yi>y)!=(yj>y))&&(x<(xj-xi)*(y-yi)/(yj-yi+1e-9)+xi);if(hit)inside=!inside;}return inside;}
 const silhouette=[[116,145],[155,92],[228,46],[318,25],[405,50],[494,93],[573,164],[635,265],[665,390],[669,515],[690,625],[735,790],[735,1308],[0,1308],[0,780],[35,655],[68,535],[78,390],[88,260]];
 async function makePortrait(){
@@ -47,21 +52,23 @@ async function makePortrait(){
  const c=document.createElement('canvas');c.width=W;c.height=H;const ctx=c.getContext('2d',{willReadFrequently:true});ctx.drawImage(img,0,0,W,H);const pix=ctx.getImageData(0,0,W,H).data;
  const candidates=[];for(let y=0;y<H;y+=2){for(let x=0;x<W;x+=2){if(!pointInPoly(x,y,silhouette))continue;const k=(y*W+x)*4,r=pix[k],g=pix[k+1],b=pix[k+2],lum=.2126*r+.7152*g+.0722*b;if(lum<9)continue;candidates.push([x,y,r,g,b,lum]);}}
  if(candidates.length<1000)throw new Error('Portrait image did not produce enough particles.');
- const pos=new Float32Array(TOTAL*3),colors=new Float32Array(TOTAL*3),delays=new Float32Array(TOTAL),heads=new Float32Array(TOTAL),depths=new Float32Array(TOTAL),brightness=new Float32Array(TOTAL);
+ const pos=new Float32Array(TOTAL*3),colors=new Float32Array(TOTAL*3),delays=new Float32Array(TOTAL),heads=new Float32Array(TOTAL),depths=new Float32Array(TOTAL),brightness=new Float32Array(TOTAL),eyes=new Float32Array(TOTAL);
  for(let i=0;i<TOTAL;i++){const a=candidates[(Math.random()*candidates.length)|0],x=a[0],y=a[1],lum=a[5],o=i*3;const nx=(x/W-.5)*3.55,ny=(.5-y/H)*6.25;pos[o]=nx;pos[o+1]=ny;pos[o+2]=(lum/255)*.22+(Math.random()-.5)*.055;
  // Lift the reference's warm highlights while preserving the dark hair and clothing.
- colors[o]=Math.min(1.25,(a[2]/255)*1.42+.025);colors[o+1]=Math.min(1.18,(a[3]/255)*1.36+.018);colors[o+2]=Math.min(1.12,(a[4]/255)*1.28+.012);
- delays[i]=Math.random()*.9;heads[i]=y<820?1:0;depths[i]=(Math.random()-.5)*.055;brightness[i]=lum/255;
+ // Lift the dark reference without washing out hair, eyes, or the warm skin tones.
+ colors[o]=Math.min(1.45,Math.pow(a[2]/255,.78)*1.34+.055);colors[o+1]=Math.min(1.35,Math.pow(a[3]/255,.78)*1.27+.045);colors[o+2]=Math.min(1.25,Math.pow(a[4]/255,.80)*1.20+.04);
+ delays[i]=Math.random()*.9;heads[i]=y<820?1:0;depths[i]=(Math.random()-.5)*.055;brightness[i]=Math.min(1,lum/205);
+ const eyeL=Math.exp(-(((x-278)/48)**2+((y-365)/25)**2));const eyeR=Math.exp(-(((x-410)/48)**2+((y-358)/25)**2));eyes[i]=Math.max(eyeL,eyeR)*(lum<145?1:.28);
  if(i%2200===0)progress(.12+.78*i/TOTAL);
  }
- const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.BufferAttribute(pos,3));geo.setAttribute('aColor',new THREE.BufferAttribute(colors,3));geo.setAttribute('aDelay',new THREE.BufferAttribute(delays,1));geo.setAttribute('aHead',new THREE.BufferAttribute(heads,1));geo.setAttribute('aDepth',new THREE.BufferAttribute(depths,1));geo.setAttribute('aBrightness',new THREE.BufferAttribute(brightness,1));
+ const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.BufferAttribute(pos,3));geo.setAttribute('aColor',new THREE.BufferAttribute(colors,3));geo.setAttribute('aDelay',new THREE.BufferAttribute(delays,1));geo.setAttribute('aHead',new THREE.BufferAttribute(heads,1));geo.setAttribute('aDepth',new THREE.BufferAttribute(depths,1));geo.setAttribute('aBrightness',new THREE.BufferAttribute(brightness,1));geo.setAttribute('aEye',new THREE.BufferAttribute(eyes,1));
  const mat=new THREE.ShaderMaterial({uniforms,vertexShader:vertex,fragmentShader:fragment,transparent:true,depthWrite:false,blending:THREE.AdditiveBlending});const portrait=new THREE.Points(geo,mat);portrait.frustumCulled=false;portraitGroup=new THREE.Group();portraitGroup.add(portrait);scene.add(portraitGroup);resize();
  // Fine drifting dust in the room.
  const n=520,dpos=new Float32Array(n*3),dsize=new Float32Array(n);for(let i=0;i<n;i++){dpos[i*3]=(Math.random()-.5)*7;dpos[i*3+1]=(Math.random()-.5)*6.5;dpos[i*3+2]=-1-Math.random()*2;dsize[i]=Math.random();}
  const dg=new THREE.BufferGeometry();dg.setAttribute('position',new THREE.BufferAttribute(dpos,3));dg.setAttribute('aSize',new THREE.BufferAttribute(dsize,1));const dm=new THREE.ShaderMaterial({transparent:true,depthWrite:false,uniforms:{uTime:uniforms.uTime,uPixelRatio:uniforms.uPixelRatio},vertexShader:`uniform float uTime,uPixelRatio;attribute float aSize;void main(){vec3 p=position;p.y=mod(p.y+uTime*(.025+aSize*.045)+3.25,6.5)-3.25;vec4 mv=modelViewMatrix*vec4(p,1.);gl_Position=projectionMatrix*mv;gl_PointSize=(1.+aSize*1.7)*uPixelRatio*7./-mv.z;}`,fragmentShader:`void main(){float d=length(gl_PointCoord-.5);if(d>.5)discard;gl_FragColor=vec4(.72,.76,.62,(.5-d)*.25);}`});const dust=new THREE.Points(dg,dm);dust.frustumCulled=false;scene.add(dust);
  progress(1);setTimeout(()=>{loader.classList.add('done');document.getElementById('hero').classList.add('on');document.getElementById('hint').classList.add('on');},250);
  }
-let start=performance.now();const smooth={x:0,y:0};function animate(now){const t=(now-start)/1000;uniforms.uTime.value=t;smooth.x+=(pointer.x-smooth.x)*.035;smooth.y+=(pointer.y-smooth.y)*.035;uniforms.uMouse.value.set(smooth.x,smooth.y);uniforms.uMousePower.value+=((pointer.inside?1:0)-uniforms.uMousePower.value)*.045;uniforms.uYaw.value+=(Math.max(-.12,Math.min(.12,pointer.x*.035))-uniforms.uYaw.value)*.025;const phase=(t-2.8)%7.5;uniforms.uSweep.value=phase>=0&&phase<1.5?2.2-phase*2.9:9;renderer.render(scene,camera);requestAnimationFrame(animate);}requestAnimationFrame(animate);
+let start=performance.now();const smooth={x:0,y:0};function animate(now){const t=(now-start)/1000;uniforms.uTime.value=t;smooth.x+=(pointer.x-smooth.x)*.035;smooth.y+=(pointer.y-smooth.y)*.035;uniforms.uMouse.value.set(smooth.x,smooth.y);uniforms.uMousePower.value+=((pointer.inside?1:0)-uniforms.uMousePower.value)*.045;uniforms.uYaw.value+=(Math.max(-.20,Math.min(.20,pointer.x*.055))-uniforms.uYaw.value)*.025;const phase=(t-2.8)%7.5;uniforms.uSweep.value=phase>=0&&phase<1.5?2.2-phase*2.9:9;renderer.render(scene,camera);requestAnimationFrame(animate);}requestAnimationFrame(animate);
 makePortrait().catch(err=>{console.error(err);count.textContent='!';document.querySelector('.count').title='Could not load elisa-reference.jpg';});
 })();
 </script>
