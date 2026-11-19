@@ -1,249 +1,37 @@
 <!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Elisa</title>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>Elisa</title>
 <style>
-:root{--bg:#0d100d;--ink:#e9e6da;--muted:#8d9686;--sage:#9db49a}
-*{box-sizing:border-box}
-html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);overflow:hidden;
-  font-family:"Helvetica Neue",Helvetica,Arial,sans-serif;
-  padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
-#stage{position:fixed;inset:0;width:100%;height:100%;display:block}
-.grain{position:fixed;inset:-50%;pointer-events:none;opacity:.08;
-  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
-  animation:grain 1s steps(6) infinite}
-@keyframes grain{0%{transform:translate(0,0)}20%{transform:translate(-3%,2%)}40%{transform:translate(2%,-4%)}60%{transform:translate(-2%,3%)}80%{transform:translate(4%,1%)}100%{transform:translate(0,0)}}
-.hero{position:fixed;left:6vw;bottom:9vh;opacity:0;transition:opacity 1.6s ease}
-.hero.on{opacity:1}
-h1{font-weight:400;font-size:clamp(28px,4vw,52px);margin:0;letter-spacing:-.01em}
-.sub{margin:.6em 0 0;color:var(--muted);font-size:clamp(13px,1.2vw,16px)}
-.loader{position:fixed;inset:0;display:grid;place-items:center;transition:opacity 1s ease}
-.loader.done{opacity:0;pointer-events:none}
-.ringbox{position:relative;width:150px;height:150px}
-.ringbox svg{width:100%;height:100%;transform:rotate(-90deg)}
-.ringbox circle{fill:none;stroke-width:1.5}
-.ringbox .track{stroke:rgba(233,230,218,.12)}
-.ringbox .fill{stroke:var(--sage);stroke-linecap:round;transition:stroke-dashoffset .2s linear}
-.count{position:absolute;inset:0;display:grid;place-items:center;font-size:20px;letter-spacing:.1em;font-variant-numeric:tabular-nums}
-</style>
-</head>
-<body>
-<canvas id="stage"></canvas>
-<div class="grain"></div>
-<div class="loader" id="loader">
-  <div class="ringbox">
-    <svg viewBox="0 0 150 150">
-      <circle class="track" cx="75" cy="75" r="68"></circle>
-      <circle class="fill" id="ring" cx="75" cy="75" r="68" stroke-dasharray="427.3" stroke-dashoffset="427.3"></circle>
-    </svg>
-    <div class="count" id="count">0</div>
-  </div>
-</div>
-<div class="hero" id="hero">
-  <h1>Elisa</h1>
-  <p class="sub">Grows quiet things with AI</p>
-</div>
-
+:root{--bg:#100d0c;--ink:#eee6d8;--muted:#8d9686}*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(--ink);font-family:Georgia,"Times New Roman",serif}#stage{position:fixed;inset:0;width:100%;height:100%;display:block}.grain{position:fixed;inset:-50%;pointer-events:none;opacity:.045;background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");animation:grain 1s steps(5) infinite}@keyframes grain{0%{transform:translate(0,0)}50%{transform:translate(2%,-2%)}100%{transform:translate(0,0)}}.brand{position:fixed;top:22px;left:28px;font-size:12px;letter-spacing:.35em;color:#a9c0a0}.brand b{display:block;color:#eee6d8;font-size:25px;letter-spacing:0;font-weight:400;margin-top:2px}.caption{position:fixed;left:4vw;bottom:7vh;font:500 15px Arial,sans-serif;color:#e9dfcc}.tag{position:fixed;right:4vw;bottom:7vh;font:15px Arial,sans-serif;color:#9da78d}.loader{position:fixed;inset:0;display:grid;place-items:center;background:#100d0c;transition:opacity .8s}.loader.done{opacity:0;pointer-events:none}.ring{width:92px;height:92px;border:1px solid #596c55;border-top-color:#d2c7ac;border-radius:50%;display:grid;place-items:center;color:#e9dfcc;font:14px Arial}
+</style></head><body>
+<canvas id="stage"></canvas><div class="grain"></div><div class="brand">E · L · I · S · A<b>Elisa.</b></div><div class="caption">Grows quiet things with AI</div><div class="tag">A botanist made of light</div><div class="loader" id="loader"><div class="ring" id="count">0%</div></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
-(function(){
-const TOTAL=66000;
-const PLAN=[['head',20000],['hair',16000],['bun',6000],['neck',4000],['shirt',14500],['visor',3000],['leaf',1500],['strand',1000]];
-const C={skin:[0.86,0.7,0.57],hair:[0.06,0.045,0.04],linen:[0.78,0.74,0.64],visor:[0.82,0.86,0.8],lens:[0.42,0.58,0.45],leaf:[0.42,0.58,0.36]};
-const TY={skin:0,hair:1,linen:2,visor:3,leaf:4,lens:5};
-const R=Math.random, clamp=(x,a,b)=>Math.min(b,Math.max(a,x));
-const tick=()=>new Promise(r=>setTimeout(r,0));
-function dirS(){const u=R()*2-1,t=R()*Math.PI*2,s=Math.sqrt(1-u*u);return [s*Math.cos(t),u,s*Math.sin(t)];}
-function push(out,x,y,z,k,j){const cc=C[k];out.push(x,y,z,TY[k],cc[0]+(R()-.5)*j,cc[1]+(R()-.5)*j,cc[2]+(R()-.5)*j);}
-
-const GEN={
-  head(n,o){for(let i=0;i<n;i++){const d=dirS(),r=1-R()*0.04;
-    let x=d[0]*0.62*r,y=0.55+d[1]*0.78*r,z=d[2]*0.6*r;
-    if(z<-0.45){i--;continue;}
-    if(y<0.1){const k=0.78+0.22*clamp((y+0.2)/0.3,0,1);x*=k;z*=k;}
-    push(o,x,y,z,'skin',0.04);}},
-  hair(n,o){for(let i=0;i<n;i++){const d=dirS();
-    if(d[1]<-0.05){i--;continue;}
-    if(d[1]<0.35&&d[2]>0.35){i--;continue;}
-    const a=Math.atan2(d[2],d[0]);
-    const r=1.04+0.015*Math.sin(5*a+3*d[1])+R()*0.01;
-    push(o,d[0]*0.62*r,0.55+d[1]*0.78*r,d[2]*0.6*r,'hair',0.05);}},
-  bun(n,o){for(let i=0;i<n;i++){const d=dirS();
-    push(o,d[0]*0.27,1.38+d[1]*0.27,-0.5+d[2]*0.27,'hair',0.05);}},
-  neck(n,o){for(let i=0;i<n;i++){const a=R()*Math.PI*2,r=0.22*(0.92+0.08*R());
-    push(o,Math.cos(a)*r,-0.3+R()*0.55,Math.sin(a)*r*0.9-0.02,'skin',0.03);}},
-  shirt(n,o){for(let i=0;i<n;i++){const d=dirS();
-    const x=d[0]*1.05,y=-1.05+d[1]*0.85,z=d[2]*0.5;
-    if(y>-0.2||z<-0.2){i--;continue;}
-    if(z>0.05&&y>-0.6&&Math.abs(x)<0.22){i--;continue;}
-    push(o,x,y,z,'linen',0.05);}},
-  visor(n,o){for(let i=0;i<n;i++){const u=R()*2-1;let v,k;
-    if(R()<0.4){v=R()<0.5?-1:1;k='visor';}
-    else{v=R()*2-1;k=(Math.abs(u)<0.8&&Math.abs(v)<0.8)?'lens':'visor';}
-    push(o,u*0.92,0.5+v*0.1,0.56-0.2*u*u,k,0.03);}},
-  leaf(n,o){const base=[0.28,1.5,-0.2];
-    for(let i=0;i<n;i++){const k=i%3;const ang=[-0.5,0.2,0.9][k];
-      const dx=Math.cos(ang),dy=Math.sin(ang),L=0.17,W=0.06;
-      const cx=base[0]+dx*L*0.9,cy=base[1]+dy*L*0.9,cz=base[2]+k*0.03;
-      const al=(R()*2-1)*L,ac=(R()*2-1)*W*Math.sqrt(Math.max(0,1-(al/L)*(al/L)));
-      push(o,cx+dx*al-dy*ac,cy+dy*al+dx*ac,cz,'leaf',0.05);}},
-  strand(n,o){for(let i=0;i<n;i++){const side=R()<0.5?-1:1,t=R();
-    push(o,side*(0.5+0.08*t)+(R()-0.5)*0.02,0.5-t*1.0,0.24+(R()-0.5)*0.03,'hair',0.04);}}
-};
-
-/* ---- three.js setup ---- */
-const canvas=document.getElementById('stage');
-const renderer=new THREE.WebGLRenderer({canvas,antialias:true});
-renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2));
-renderer.setClearColor(0x0d100d,1);
-const scene=new THREE.Scene();
-const camera=new THREE.PerspectiveCamera(30,1,0.1,100);
-camera.position.set(0,0.25,6.4);camera.lookAt(0,0.2,0);
-const U={uTime:{value:0},uYaw:{value:0},uPitch:{value:0},uCursor:{value:new THREE.Vector2(0,0)},
-  uCursorStrength:{value:0},uSweep:{value:99},uGlintOn:{value:0},uGlintMode:{value:1},uGlintX:{value:0},
-  uSize:{value:0.018},uPixel:{value:800}};
-function resize(){
-  renderer.setSize(window.innerWidth,window.innerHeight,false);
-  camera.aspect=window.innerWidth/window.innerHeight;camera.updateProjectionMatrix();
-  U.uPixel.value=renderer.getPixelRatio()*window.innerHeight/(2*Math.tan(THREE.MathUtils.degToRad(15)));
-}
-window.addEventListener('resize',resize);resize();
-
-const cursor={x:0,y:0,active:false};
-window.addEventListener('pointermove',e=>{cursor.x=(e.clientX/window.innerWidth)*2-1;cursor.y=-((e.clientY/window.innerHeight)*2-1);cursor.active=true;});
-window.addEventListener('pointerleave',()=>{cursor.active=false;});
-
-const VERT=`
-uniform float uTime,uYaw,uPitch,uSweep,uGlintOn,uGlintMode,uGlintX,uSize,uPixel,uCursorStrength;
-uniform vec2 uCursor;
-attribute vec3 aStart,aColor;
-attribute float aDelay,aType;
-varying float vLight,vAlpha;varying vec3 vColor;
-void main(){
-  float p=clamp((uTime-aDelay)/1.8,0.0,1.0);
-  float e=1.0-pow(1.0-p,3.0);
-  vec3 pos=mix(aStart,position,e);
-  pos.z+=sin(p*3.14159)*0.8;
-  float cy=cos(uYaw),sy=sin(uYaw),cx=cos(uPitch),sx=sin(uPitch);
-  vec3 r=vec3(pos.x*cy+pos.z*sy,pos.y,-pos.x*sy+pos.z*cy);
-  r=vec3(r.x,r.y*cx-r.z*sx,r.y*sx+r.z*cx);
-  vec4 mv=modelViewMatrix*vec4(r,1.0);
-  gl_Position=projectionMatrix*mv;
-  float d=distance(r.xy,uCursor);
-  float glow=exp(-d*d*9.0)*uCursorStrength;
-  float band=exp(-pow((r.x*0.7+r.y*0.9)-uSweep,2.0)*18.0);
-  float isVisor=(aType==3.0||aType==5.0)?1.0:0.0;
-  float isLeaf=(aType==4.0)?1.0:0.0;
-  float glint=uGlintOn*(uGlintMode*isVisor+(1.0-uGlintMode)*isLeaf)*exp(-pow(r.x-uGlintX,2.0)*10.0);
-  vLight=0.55+glow*0.9+band*0.7+glint*0.8;
-  vColor=aColor;vAlpha=e;
-  gl_PointSize=uSize*uPixel/-mv.z*(0.4+0.6*e);
-}`;
-const FRAG=`
-varying float vLight,vAlpha;varying vec3 vColor;
-void main(){
-  float d=length(gl_PointCoord-0.5);
-  if(d>0.5)discard;
-  float a=smoothstep(0.5,0.0,d)*vAlpha;
-  gl_FragColor=vec4(vColor*vLight,a*0.9);
-}`;
-
-function setProgress(p){
-  document.getElementById('ring').style.strokeDashoffset=427.3*(1-p);
-  document.getElementById('count').textContent=Math.round(p*100);
-}
-
-async function build(){
-  const data=[];let done=0;
-  for(const [kind,n] of PLAN){
-    let left=n;
-    while(left>0){const k=Math.min(1000,left);GEN[kind](k,data);left-=k;done+=k;setProgress(done/TOTAL);await tick();}
-  }
-  const N=data.length/7;
-  const target=new Float32Array(N*3),col=new Float32Array(N*3),typ=new Float32Array(N),
-        start=new Float32Array(N*3),delay=new Float32Array(N);
-  for(let i=0;i<N;i++){
-    const o=i*7;
-    target.set([data[o],data[o+1],data[o+2]],i*3);
-    typ[i]=data[o+3];
-    col.set([data[o+4],data[o+5],data[o+6]],i*3);
-    const a=R()*Math.PI*2,rr=3.2;
-    start.set([Math.cos(a)*rr,Math.sin(a)*rr*0.85+0.1,-1.2+R()*0.4],i*3);
-    delay[i]=0.1+R()*0.9;
-  }
-  const g=new THREE.BufferGeometry();
-  g.setAttribute('position',new THREE.BufferAttribute(target,3));
-  g.setAttribute('aColor',new THREE.BufferAttribute(col,3));
-  g.setAttribute('aType',new THREE.BufferAttribute(typ,1));
-  g.setAttribute('aStart',new THREE.BufferAttribute(start,3));
-  g.setAttribute('aDelay',new THREE.BufferAttribute(delay,1));
-  const mat=new THREE.ShaderMaterial({uniforms:U,vertexShader:VERT,fragmentShader:FRAG,
-    transparent:true,depthWrite:false,blending:THREE.AdditiveBlending});
-  const pts=new THREE.Points(g,mat);pts.frustumCulled=false;
-  scene.add(pts);
-
-  /* dust */
-  const DN=600,dp=new Float32Array(DN*4);
-  for(let i=0;i<DN;i++){dp.set([(R()*2-1)*4,R()*6,(R()*2-1)*2,R()],i*4);}
-  const dg=new THREE.BufferGeometry();
-  const dpos=new Float32Array(DN*3),dS=new Float32Array(DN);
-  for(let i=0;i<DN;i++){dpos.set([dp[i*4],dp[i*4+1],dp[i*4+2]],i*3);dS[i]=dp[i*4+3];}
-  dg.setAttribute('position',new THREE.BufferAttribute(dpos,3));
-  dg.setAttribute('aS',new THREE.BufferAttribute(dS,1));
-  const dmat=new THREE.ShaderMaterial({uniforms:{uTime:U.uTime,uPixel:U.uPixel},
-    vertexShader:`uniform float uTime,uPixel;attribute float aS;
-      void main(){vec3 p=position;p.y=mod(p.y+uTime*0.03*(0.5+aS),6.0)-3.0;
-      vec4 mv=modelViewMatrix*vec4(p,1.0);gl_Position=projectionMatrix*mv;
-      gl_PointSize=(1.2+aS*1.8)*0.012*uPixel/-mv.z;}`,
-    fragmentShader:`void main(){float d=length(gl_PointCoord-0.5);if(d>0.5)discard;
-      gl_FragColor=vec4(0.8,0.75,0.6,(0.5-d)*0.4);}`,
-    transparent:true,depthWrite:false,blending:THREE.AdditiveBlending});
-  const dust=new THREE.Points(dg,dmat);dust.frustumCulled=false;scene.add(dust);
-
-  return {mat};
-}
-
-let assembleAt=0,started=false;
-const mouseSmooth={x:0,y:0};
-function loop(now){
-  const s=now/1000;
-  if(started){
-    const ta=(now-assembleAt)/1000;
-    U.uTime.value=Math.max(0,ta);
-    // sweep once
-    const st=ta-3.0;
-    U.uSweep.value=(st>0&&st<2.2)?(-2.5+st/2.2*5):99;
-    // glint cycle every 6s after assembly
-    if(ta>5.5){
-      const gph=(ta-5.5)%6.0;
-      if(gph<1.4){U.uGlintOn.value=1;U.uGlintMode.value=1;U.uGlintX.value=-1.2+gph/1.4*2.4;}
-      else if(gph>=1.6&&gph<3.0){U.uGlintOn.value=1;U.uGlintMode.value=0;U.uGlintX.value=-1.2+(gph-1.6)/1.4*2.4;}
-      else U.uGlintOn.value=0;
-    }
-    // cursor light + head turn
-    const tx=cursor.active?cursor.x:0, ty=cursor.active?cursor.y:0;
-    mouseSmooth.x+=(tx-mouseSmooth.x)*0.04;mouseSmooth.y+=(ty-mouseSmooth.y)*0.04;
-    U.uYaw.value=mouseSmooth.x*0.35+Math.sin(s*0.3)*0.03;
-    U.uPitch.value=-mouseSmooth.y*0.1;
-    U.uCursor.value.set(mouseSmooth.x*1.2,mouseSmooth.y*1.2+0.2);
-    U.uCursorStrength.value+=((cursor.active?1:0)-U.uCursorStrength.value)*0.05;
-  }
-  renderer.render(scene,camera);
-  requestAnimationFrame(loop);
-}
-requestAnimationFrame(loop);
-
-build().then(()=>{
-  setProgress(1);
-  setTimeout(()=>{
-    document.getElementById('loader').classList.add('done');
-    document.getElementById('hero').classList.add('on');
-  },300);
-  assembleAt=performance.now();started=true;
-});
+(()=>{
+const canvas=document.querySelector('#stage'),renderer=new THREE.WebGLRenderer({canvas,antialias:true,alpha:false});renderer.setPixelRatio(Math.min(devicePixelRatio||1,2));renderer.setClearColor(0x100d0c,1);
+const scene=new THREE.Scene();const camera=new THREE.PerspectiveCamera(38,1,.1,100);camera.position.set(0,0,8);camera.lookAt(0,0,0);
+const U={uTime:{value:0},uYaw:{value:0},uCursor:{value:new THREE.Vector2()},uCursorPower:{value:0},uPixel:{value:800}};
+function resize(){renderer.setSize(innerWidth,innerHeight,false);camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();U.uPixel.value=renderer.getPixelRatio()*innerHeight/(2*Math.tan(THREE.MathUtils.degToRad(19)));}addEventListener('resize',resize);resize();
+const pointer={x:0,y:0,active:false};addEventListener('pointermove',e=>{pointer.x=e.clientX/innerWidth*2-1;pointer.y=1-e.clientY/innerHeight*2;pointer.active=true});addEventListener('pointerleave',()=>pointer.active=false);
+const vertex=`uniform float uTime,uYaw,uPixel,uCursorPower;uniform vec2 uCursor;attribute vec3 aColor;attribute float aHead,aSeed;varying vec3 vColor;varying float vAlpha,vGlow;void main(){vec3 p=position;float yaw=uYaw*aHead;float pivotY=-.194;float py=p.y-pivotY;float c=cos(yaw),s=sin(yaw);float x=p.x*c+p.z*s;float z=-p.x*s+p.z*c;p.x=x;p.y=py*c-p.z*s+pivotY;p.z=py*s+p.z*c;vec4 mv=modelViewMatrix*vec4(p,1.);gl_Position=projectionMatrix*mv;float d=distance(p.xy,uCursor);vGlow=exp(-d*d*3.8)*uCursorPower;vColor=aColor;vAlpha=.72+.22*sin(uTime*1.1+aSeed*19.);gl_PointSize=(1.25+aSeed*1.15+vGlow*1.1)*uPixel/-mv.z;}`;
+const fragment=`varying vec3 vColor;varying float vAlpha,vGlow;void main(){float d=length(gl_PointCoord-.5);if(d>.5)discard;float soft=1.-smoothstep(.22,.5,d);vec3 col=vColor*(.94+vGlow*.42);gl_FragColor=vec4(col,soft*vAlpha);}`;
+function loadParticles(){return new Promise((resolve,reject)=>{const img=new Image();img.onload=()=>{try{const w=img.naturalWidth,h=img.naturalHeight,off=document.createElement('canvas');off.width=w;off.height=h;const cx=off.getContext('2d',{willReadFrequently:true});cx.drawImage(img,0,0);const pix=cx.getImageData(0,0,w,h).data;const positions=[],colors=[],heads=[],seeds=[];const step=2;const worldH=5.55,worldW=worldH*w/h;let count=0;
+for(let y=0;y<h;y+=step){for(let x=0;x<w;x+=step){const i=(y*w+x)*4,r=pix[i],g=pix[i+1],b=pix[i+2];const lum=.2126*r+.7152*g+.0722*b;const nx=x/w,ny=y/h;
+// Suppress the near-black room while retaining dark hair and clothing inside the subject silhouette.
+let inSubject=false;if(ny<.58){const cxn=.5,rx=ny<.12?.43:.48;inSubject=Math.abs(nx-cxn)<rx;}else{const bodyWidth=.5+Math.min(.12,(ny-.58)*.32);inSubject=Math.abs(nx-.5)<bodyWidth;}
+if(!inSubject||lum<9)continue;
+// Slightly lift shadows without washing out the natural skin, hair, or dark clothing colors.
+const lift=v=>Math.min(1,Math.pow(v/255,.82)*.93+.012);const cr=lift(r),cg=lift(g),cb=lift(b);
+const jitter=(Math.random()-.5)*.008;const px=(nx-.5)*worldW+jitter,py=(.5-ny)*worldH+jitter;
+positions.push(px,py,(Math.random()-.5)*.035);colors.push(cr,cg,cb);
+// Head region only: head pivots at the base of the neck. Chest/shoulders remain locked.
+heads.push(ny<.535?1:0);seeds.push(Math.random());count++;
+}}
+const geo=new THREE.BufferGeometry();geo.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));geo.setAttribute('aColor',new THREE.Float32BufferAttribute(colors,3));geo.setAttribute('aHead',new THREE.Float32BufferAttribute(heads,1));geo.setAttribute('aSeed',new THREE.Float32BufferAttribute(seeds,1));
+const mat=new THREE.ShaderMaterial({uniforms:U,vertexShader:vertex,fragmentShader:fragment,transparent:true,depthWrite:false,blending:THREE.NormalBlending});const points=new THREE.Points(geo,mat);points.frustumCulled=false;scene.add(points);
+// Fine ambient dust in front of the portrait.
+const n=420,dp=new Float32Array(n*3);for(let i=0;i<n;i++)dp.set([(Math.random()-.5)*5,(Math.random()-.5)*6,(Math.random()-.5)*.5+.3],i*3);const dg=new THREE.BufferGeometry();dg.setAttribute('position',new THREE.BufferAttribute(dp,3));const dm=new THREE.PointsMaterial({color:0xb8aa8e,size:.012,transparent:true,opacity:.32,depthWrite:false});const dust=new THREE.Points(dg,dm);scene.add(dust);
+resolve({count,dust});}catch(e){reject(e)}};img.onerror=()=>reject(new Error('Could not load Elisa reference image'));img.src='elisa-reference.jpg';});}
+let smoothX=0,smoothY=0;function animate(t){const s=t*.001;U.uTime.value=s;smoothX+=(pointer.x-smoothX)*.025;smoothY+=(pointer.y-smoothY)*.025;U.uYaw.value=(pointer.active?smoothX*.19:Math.sin(s*.35)*.012);U.uCursor.value.set(smoothX*1.1,smoothY*1.2);U.uCursorPower.value+=(pointer.active?1:0-U.uCursorPower.value)*.04;renderer.render(scene,camera);requestAnimationFrame(animate)}requestAnimationFrame(animate);
+loadParticles().then(({count})=>{const el=document.querySelector('#count');el.textContent='100%';setTimeout(()=>document.querySelector('#loader').classList.add('done'),250);console.info('Elisa particle portrait:',count,'particles');}).catch(err=>{document.querySelector('#count').textContent='Portrait error';console.error(err)});
 })();
-</script>
-</body>
-</html>
+</script></body></html>
